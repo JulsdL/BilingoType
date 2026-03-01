@@ -1,0 +1,23 @@
+{
+  "enabledPlugins": {
+    "everything-claude-code@everything-claude-code": true
+  },
+  "env": {
+    "MAX_THINKING_TOKENS": "10000",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "50",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/julien/.claude/hooks/rtk-rewrite.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

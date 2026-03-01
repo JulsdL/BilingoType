@@ -271,6 +271,9 @@ stt/uv.lock
 __pycache__/
 *.pyc
 
+# Codegraph
+.codegraph/
+
 # Claude Code
 .claude/
 .agent/

@@ -12,6 +12,8 @@ import {
   Sun,
   Moon,
   Monitor,
+  Cpu,
+  Gauge,
 } from "lucide-react";
 import MicPermissionWarning from "./ui/MicPermissionWarning";
 import MicrophoneSettings from "./ui/MicrophoneSettings";
@@ -38,6 +40,9 @@ import { useToast } from "./ui/Toast";
 import { useTheme } from "../hooks/useTheme";
 import logger from "../utils/logger";
 import { SettingsRow } from "./ui/SettingsSection";
+import { getRecommendedModel } from "../utils/hardwareRecommendation";
+import { WHISPER_MODEL_INFO } from "../models/localModelData";
+import type { GpuInfo } from "../types/electron";
 
 export type SettingsSectionType =
   | "general"
@@ -137,15 +142,26 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
     setAudioCuesEnabled,
     floatingIconAutoHide,
     setFloatingIconAutoHide,
-    telemetryEnabled,
-    setTelemetryEnabled,
     customDictionary,
     setCustomDictionary,
+    sttDevice,
+    setSttDevice,
   } = useSettings();
 
   const { t } = useTranslation();
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
+
+  // Hardware info state for transcription settings
+  const [hwInfo, setHwInfo] = useState<{
+    gpu: GpuInfo;
+    currentDevice: string;
+    benchmarkMs: number | null;
+  } | null>(null);
+  const [benchmarkRunning, setBenchmarkRunning] = useState(false);
+
+  // Telemetry toggle — placeholder state until properly wired to settings store
+  const [telemetryEnabled, setTelemetryEnabled] = useState(true);
 
   const [currentVersion, setCurrentVersion] = useState<string>("");
   const [isRemovingModels, setIsRemovingModels] = useState(false);
@@ -360,6 +376,29 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
       }
     };
   }, [installInitiated, showAlertDialog, t]);
+
+  // Load hardware info for transcription settings
+  useEffect(() => {
+    if (activeSection !== "transcription") return;
+    window.electronAPI
+      ?.getHardwareInfo?.()
+      .then(setHwInfo)
+      .catch((err) => logger.warn("Failed to load hardware info", err, "settings"));
+  }, [activeSection]);
+
+  const handleRunBenchmark = useCallback(async () => {
+    setBenchmarkRunning(true);
+    try {
+      const result = await window.electronAPI?.runSttBenchmark?.();
+      if (result?.success && result.latencyMs != null) {
+        setHwInfo((prev) => (prev ? { ...prev, benchmarkMs: result.latencyMs! } : prev));
+      }
+    } catch (err) {
+      logger.warn("Benchmark failed", err, "settings");
+    } finally {
+      setBenchmarkRunning(false);
+    }
+  }, []);
 
   const resetAccessibilityPermissions = () => {
     const message = t("settingsPage.permissions.resetAccessibility.description");
@@ -637,13 +676,114 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
           </div>
         );
 
-      case "transcription":
+      case "transcription": {
+        const recommendation = hwInfo ? getRecommendedModel(hwInfo.gpu) : null;
+        const recommendedLabel = recommendation
+          ? (WHISPER_MODEL_INFO[recommendation.modelId]?.name ?? recommendation.modelId)
+          : null;
+
         return (
           <div className="space-y-4">
             <SectionHeader
               title={t("settingsPage.transcription.title")}
               description={t("settingsPage.transcription.description")}
             />
+
+            {/* Hardware info card */}
+            {localTranscriptionProvider === "faster-whisper" && (
+              <SettingsPanel>
+                <SettingsPanelRow>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Cpu className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-foreground truncate">
+                          {hwInfo?.gpu.hasNvidiaGpu
+                            ? hwInfo.gpu.gpuName
+                            : t("settingsPage.transcription.hardware.noGpu")}
+                        </p>
+                        {hwInfo?.gpu.hasNvidiaGpu && hwInfo.gpu.vramMb && (
+                          <p className="text-xs text-muted-foreground/80">
+                            {t("settingsPage.transcription.hardware.vram", {
+                              vram: hwInfo.gpu.vramMb,
+                            })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {recommendedLabel && (
+                      <Badge variant="secondary" className="shrink-0 text-[10px]">
+                        {t("settingsPage.transcription.hardware.recommendedModel", {
+                          model: recommendedLabel,
+                        })}
+                      </Badge>
+                    )}
+                  </div>
+                </SettingsPanelRow>
+
+                <SettingsPanelRow>
+                  <SettingsRow
+                    label={t("settingsPage.transcription.hardware.deviceLabel")}
+                    description={t("settingsPage.transcription.hardware.deviceDescription")}
+                  >
+                    <div className="flex gap-1">
+                      {(["auto", "cuda", "cpu"] as const).map((device) => {
+                        const labels: Record<string, string> = {
+                          auto: t("settingsPage.transcription.hardware.deviceAuto"),
+                          cuda: t("settingsPage.transcription.hardware.deviceCuda"),
+                          cpu: t("settingsPage.transcription.hardware.deviceCpu"),
+                        };
+                        const isDisabled = device === "cuda" && !hwInfo?.gpu.hasNvidiaGpu;
+                        return (
+                          <Button
+                            key={device}
+                            variant={sttDevice === device ? "default" : "outline"}
+                            size="sm"
+                            className="text-[11px] h-7 px-2.5"
+                            disabled={isDisabled}
+                            title={
+                              isDisabled
+                                ? t("settingsPage.transcription.hardware.deviceCudaUnavailable")
+                                : undefined
+                            }
+                            onClick={() => setSttDevice(device)}
+                          >
+                            {labels[device]}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </SettingsRow>
+                </SettingsPanelRow>
+
+                <SettingsPanelRow>
+                  <SettingsRow
+                    label={t("settingsPage.transcription.hardware.benchmarkLabel")}
+                    description={
+                      hwInfo?.benchmarkMs != null
+                        ? t("settingsPage.transcription.hardware.benchmarkValue", {
+                            ms: hwInfo.benchmarkMs,
+                          })
+                        : undefined
+                    }
+                  >
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-[11px] h-7 px-2.5"
+                      disabled={benchmarkRunning}
+                      onClick={handleRunBenchmark}
+                    >
+                      <Gauge className="h-3 w-3 mr-1" />
+                      {benchmarkRunning
+                        ? t("settingsPage.transcription.hardware.benchmarkRunning")
+                        : t("settingsPage.transcription.hardware.benchmarkRun")}
+                    </Button>
+                  </SettingsRow>
+                </SettingsPanelRow>
+              </SettingsPanel>
+            )}
+
             <TranscriptionModelPicker
               selectedLocalModel={
                 localTranscriptionProvider === "nvidia" ? parakeetModel : whisperModel
@@ -661,6 +801,7 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
             />
           </div>
         );
+      }
 
       case "dictionary":
         return (

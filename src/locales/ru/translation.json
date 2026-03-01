@@ -1180,6 +1180,22 @@
       "bilingotypeCloud": "BilingoType Cloud",
       "bilingotypeCloudDescription": "Просто работает. Настройка не требуется.",
       "title": "Распознавание речи",
+      "hardware": {
+        "title": "Оборудование",
+        "noGpu": "GPU не обнаружен",
+        "vram": "{{vram}} МБ VRAM",
+        "recommendedModel": "Рекомендуется: {{model}}",
+        "deviceLabel": "Устройство",
+        "deviceDescription": "Выберите устройство для распознавания речи",
+        "deviceAuto": "Авто",
+        "deviceCuda": "GPU (CUDA)",
+        "deviceCpu": "CPU",
+        "deviceCudaUnavailable": "GPU NVIDIA недоступен",
+        "benchmarkLabel": "Задержка",
+        "benchmarkValue": "{{ms}}мс на секунду аудио",
+        "benchmarkRunning": "Измерение...",
+        "benchmarkRun": "Измерить"
+      },
       "toasts": {
         "switchedCloud": {
           "description": "Транскрипция будет использовать облачный сервис BilingoType.",

@@ -397,6 +397,7 @@ declare global {
         useLocalWhisper: boolean;
         localTranscriptionProvider: LocalTranscriptionProvider;
         model?: string;
+        sttDevice?: string;
       }) => Promise<void>;
 
       // Clipboard operations
@@ -428,6 +429,20 @@ declare global {
       cancelWhisperDownload: () => Promise<{
         success: boolean;
         message?: string;
+        error?: string;
+      }>;
+
+      // Hardware info + benchmark
+      getHardwareInfo: () => Promise<{
+        gpu: GpuInfo;
+        currentDevice: string;
+        benchmarkMs: number | null;
+      }>;
+      runSttBenchmark: () => Promise<{
+        success: boolean;
+        latencyMs?: number;
+        device?: string;
+        model?: string;
         error?: string;
       }>;
 

@@ -8,6 +8,7 @@ export interface WhisperModelInfo {
   description: string;
   size: string;
   sizeMb: number;
+  vramRequiredMb: number;
   recommended: boolean;
 }
 
@@ -26,6 +27,7 @@ export const WHISPER_MODEL_INFO: Record<string, WhisperModelInfo> = {
     description: "Fastest, lowest accuracy. Good for quick tests.",
     size: "75 MB",
     sizeMb: 75,
+    vramRequiredMb: 1000,
     recommended: false,
   },
   base: {
@@ -33,6 +35,7 @@ export const WHISPER_MODEL_INFO: Record<string, WhisperModelInfo> = {
     description: "Fast with decent accuracy. Good starting point.",
     size: "142 MB",
     sizeMb: 142,
+    vramRequiredMb: 1000,
     recommended: false,
   },
   small: {
@@ -40,6 +43,7 @@ export const WHISPER_MODEL_INFO: Record<string, WhisperModelInfo> = {
     description: "Good balance of speed and accuracy.",
     size: "466 MB",
     sizeMb: 466,
+    vramRequiredMb: 2000,
     recommended: true,
   },
   medium: {
@@ -47,6 +51,15 @@ export const WHISPER_MODEL_INFO: Record<string, WhisperModelInfo> = {
     description: "High accuracy, moderate speed.",
     size: "1.5 GB",
     sizeMb: 1536,
+    vramRequiredMb: 4000,
+    recommended: false,
+  },
+  "large-v3-turbo": {
+    name: "Large v3 Turbo",
+    description: "GPU-optimized. Fast with excellent accuracy.",
+    size: "1.6 GB",
+    sizeMb: 1638,
+    vramRequiredMb: 4000,
     recommended: false,
   },
   "large-v3": {
@@ -54,6 +67,7 @@ export const WHISPER_MODEL_INFO: Record<string, WhisperModelInfo> = {
     description: "Highest accuracy. Requires more memory and time.",
     size: "3.0 GB",
     sizeMb: 3072,
+    vramRequiredMb: 6000,
     recommended: false,
   },
 };

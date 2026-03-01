@@ -1180,6 +1180,22 @@
       "bilingotypeCloud": "BilingoType Cloud",
       "bilingotypeCloudDescription": "Funciona de inmediato. Sin configuración necesaria.",
       "title": "Voz a texto",
+      "hardware": {
+        "title": "Hardware",
+        "noGpu": "No se detectó GPU",
+        "vram": "{{vram}} MB VRAM",
+        "recommendedModel": "Recomendado: {{model}}",
+        "deviceLabel": "Dispositivo",
+        "deviceDescription": "Elige qué dispositivo ejecuta el reconocimiento de voz",
+        "deviceAuto": "Auto",
+        "deviceCuda": "GPU (CUDA)",
+        "deviceCpu": "CPU",
+        "deviceCudaUnavailable": "No hay GPU NVIDIA disponible",
+        "benchmarkLabel": "Latencia",
+        "benchmarkValue": "{{ms}}ms por segundo de audio",
+        "benchmarkRunning": "Midiendo...",
+        "benchmarkRun": "Medir"
+      },
       "toasts": {
         "switchedCloud": {
           "description": "La transcripción usará el servicio en la nube de BilingoType.",

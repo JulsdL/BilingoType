@@ -1180,6 +1180,22 @@
       "bilingotypeCloud": "BilingoType Cloud",
       "bilingotypeCloudDescription": "Just works. No configuration needed.",
       "title": "Speech to Text",
+      "hardware": {
+        "title": "Hardware",
+        "noGpu": "No GPU detected",
+        "vram": "{{vram}} MB VRAM",
+        "recommendedModel": "Recommended: {{model}}",
+        "deviceLabel": "Device",
+        "deviceDescription": "Choose which device runs speech recognition",
+        "deviceAuto": "Auto",
+        "deviceCuda": "GPU (CUDA)",
+        "deviceCpu": "CPU",
+        "deviceCudaUnavailable": "No NVIDIA GPU available",
+        "benchmarkLabel": "Latency",
+        "benchmarkValue": "{{ms}}ms per second of audio",
+        "benchmarkRunning": "Measuring...",
+        "benchmarkRun": "Measure"
+      },
       "toasts": {
         "switchedCloud": {
           "description": "Transcription will use BilingoType's cloud service.",

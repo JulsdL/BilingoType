@@ -1176,6 +1176,22 @@
       "bilingotypeCloud": "BilingoType Cloud",
       "bilingotypeCloudDescription": "即開即用，無需設定。",
       "title": "語音轉文字",
+      "hardware": {
+        "title": "硬體",
+        "noGpu": "未偵測到GPU",
+        "vram": "{{vram}} MB 顯存",
+        "recommendedModel": "建議：{{model}}",
+        "deviceLabel": "裝置",
+        "deviceDescription": "選擇執行語音辨識的裝置",
+        "deviceAuto": "自動",
+        "deviceCuda": "GPU (CUDA)",
+        "deviceCpu": "CPU",
+        "deviceCudaUnavailable": "沒有可用的NVIDIA GPU",
+        "benchmarkLabel": "延遲",
+        "benchmarkValue": "每秒音訊{{ms}}毫秒",
+        "benchmarkRunning": "測量中...",
+        "benchmarkRun": "測量"
+      },
       "toasts": {
         "switchedCloud": {
           "description": "轉錄將使用 BilingoType 雲端服務。",

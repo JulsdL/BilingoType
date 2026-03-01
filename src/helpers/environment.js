@@ -25,6 +25,8 @@ const PERSISTED_KEYS = [
   "FLOATING_ICON_AUTO_HIDE",
   "UI_LANGUAGE",
   "WHISPER_CUDA_ENABLED",
+  "STT_DEVICE",
+  "STT_BENCHMARK_MS",
 ];
 
 class EnvironmentManager {

@@ -78,6 +78,7 @@ export interface SettingsState
   setSelectedMicDeviceId: (value: string) => void;
 
   setTheme: (value: "light" | "dark" | "auto") => void;
+  setSttDevice: (value: "auto" | "cuda" | "cpu") => void;
   setAudioCuesEnabled: (value: boolean) => void;
   setFloatingIconAutoHide: (enabled: boolean) => void;
 
@@ -115,6 +116,12 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   activationMode: (readString("activationMode", "tap") === "push" ? "push" : "tap") as
     | "tap"
     | "push",
+
+  sttDevice: (() => {
+    const v = readString("sttDevice", "auto");
+    if (v === "cuda" || v === "cpu") return v;
+    return "auto" as const;
+  })() as "auto" | "cuda" | "cpu",
 
   preferBuiltInMic: readBoolean("preferBuiltInMic", true),
   selectedMicDeviceId: readString("selectedMicDeviceId", ""),
@@ -179,6 +186,11 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (isBrowser) {
       window.electronAPI?.notifyActivationModeChanged?.(mode);
     }
+  },
+
+  setSttDevice: (value: "auto" | "cuda" | "cpu") => {
+    if (isBrowser) localStorage.setItem("sttDevice", value);
+    useSettingsStore.setState({ sttDevice: value });
   },
 
   setPreferBuiltInMic: createBooleanSetter("preferBuiltInMic"),

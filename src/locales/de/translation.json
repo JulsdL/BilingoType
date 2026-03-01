@@ -1180,6 +1180,22 @@
       "bilingotypeCloud": "BilingoType Cloud",
       "bilingotypeCloudDescription": "Funktioniert sofort. Keine Konfiguration nötig.",
       "title": "Sprache-zu-Text",
+      "hardware": {
+        "title": "Hardware",
+        "noGpu": "Keine GPU erkannt",
+        "vram": "{{vram}} MB VRAM",
+        "recommendedModel": "Empfohlen: {{model}}",
+        "deviceLabel": "Gerät",
+        "deviceDescription": "Wählen Sie das Gerät für die Spracherkennung",
+        "deviceAuto": "Auto",
+        "deviceCuda": "GPU (CUDA)",
+        "deviceCpu": "CPU",
+        "deviceCudaUnavailable": "Keine NVIDIA GPU verfügbar",
+        "benchmarkLabel": "Latenz",
+        "benchmarkValue": "{{ms}}ms pro Sekunde Audio",
+        "benchmarkRunning": "Wird gemessen...",
+        "benchmarkRun": "Messen"
+      },
       "toasts": {
         "switchedCloud": {
           "description": "Transkription verwendet jetzt den BilingoType-Cloud-Dienst.",

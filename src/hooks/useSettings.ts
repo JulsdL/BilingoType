@@ -12,6 +12,7 @@ export interface TranscriptionSettings {
   parakeetModel: string;
   preferredLanguage: string;
   customDictionary: string[];
+  sttDevice: "auto" | "cuda" | "cpu";
 }
 
 export interface HotkeySettings {
@@ -82,7 +83,8 @@ function useSettingsInternal() {
   }, []);
 
   // Sync startup pre-warming preferences to main process
-  const { useLocalWhisper, localTranscriptionProvider, whisperModel, parakeetModel } = store;
+  const { useLocalWhisper, localTranscriptionProvider, whisperModel, parakeetModel, sttDevice } =
+    store;
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.electronAPI?.syncStartupPreferences) return;
@@ -93,6 +95,7 @@ function useSettingsInternal() {
         useLocalWhisper,
         localTranscriptionProvider,
         model: model || undefined,
+        sttDevice,
       })
       .catch((err) =>
         logger.warn(
@@ -101,7 +104,7 @@ function useSettingsInternal() {
           "settings"
         )
       );
-  }, [useLocalWhisper, localTranscriptionProvider, whisperModel, parakeetModel]);
+  }, [useLocalWhisper, localTranscriptionProvider, whisperModel, parakeetModel, sttDevice]);
 
   return {
     useLocalWhisper: store.useLocalWhisper,
@@ -118,6 +121,8 @@ function useSettingsInternal() {
     setParakeetModel: store.setParakeetModel,
     setPreferredLanguage: store.setPreferredLanguage,
     setCustomDictionary: store.setCustomDictionary,
+    sttDevice: store.sttDevice,
+    setSttDevice: store.setSttDevice,
     dictationKey: store.dictationKey,
     setDictationKey: store.setDictationKey,
     theme: store.theme,

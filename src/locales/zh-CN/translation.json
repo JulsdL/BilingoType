@@ -1180,6 +1180,22 @@
       "bilingotypeCloud": "BilingoType 云端",
       "bilingotypeCloudDescription": "开箱即用，无需配置。",
       "title": "语音转文字",
+      "hardware": {
+        "title": "硬件",
+        "noGpu": "未检测到GPU",
+        "vram": "{{vram}} MB 显存",
+        "recommendedModel": "推荐：{{model}}",
+        "deviceLabel": "设备",
+        "deviceDescription": "选择运行语音识别的设备",
+        "deviceAuto": "自动",
+        "deviceCuda": "GPU (CUDA)",
+        "deviceCpu": "CPU",
+        "deviceCudaUnavailable": "没有可用的NVIDIA GPU",
+        "benchmarkLabel": "延迟",
+        "benchmarkValue": "每秒音频{{ms}}毫秒",
+        "benchmarkRunning": "测量中...",
+        "benchmarkRun": "测量"
+      },
       "toasts": {
         "switchedCloud": {
           "description": "转录将使用 BilingoType 云端服务。",

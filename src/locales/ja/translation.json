@@ -1180,6 +1180,22 @@
       "bilingotypeCloud": "BilingoType Cloud",
       "bilingotypeCloudDescription": "設定不要ですぐに使えます。",
       "title": "音声テキスト変換",
+      "hardware": {
+        "title": "ハードウェア",
+        "noGpu": "GPUが検出されませんでした",
+        "vram": "{{vram}} MB VRAM",
+        "recommendedModel": "推奨: {{model}}",
+        "deviceLabel": "デバイス",
+        "deviceDescription": "音声認識に使用するデバイスを選択",
+        "deviceAuto": "自動",
+        "deviceCuda": "GPU (CUDA)",
+        "deviceCpu": "CPU",
+        "deviceCudaUnavailable": "NVIDIA GPUが利用できません",
+        "benchmarkLabel": "レイテンシ",
+        "benchmarkValue": "オーディオ1秒あたり{{ms}}ms",
+        "benchmarkRunning": "測定中...",
+        "benchmarkRun": "測定"
+      },
       "toasts": {
         "switchedCloud": {
           "description": "文字起こしに BilingoType のクラウドサービスを使用します。",

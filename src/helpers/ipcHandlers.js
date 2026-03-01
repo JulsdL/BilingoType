@@ -966,6 +966,11 @@ class IPCHandlers {
         });
       }
 
+      // Persist STT device preference
+      if (prefs.sttDevice) {
+        setVars.STT_DEVICE = prefs.sttDevice;
+      }
+
       this._syncStartupEnv(setVars, clearVars);
     });
 
@@ -1195,7 +1200,7 @@ class IPCHandlers {
       try {
         const result = await this.fasterWhisperManager.startSession({
           model: options.model || "base",
-          device: options.device,
+          device: options.device || process.env.STT_DEVICE || "auto",
           language: options.language,
           initialPrompt: options.initialPrompt,
         });
@@ -1250,6 +1255,65 @@ class IPCHandlers {
     });
 
     // -------------------------------------------------------------------------
+    // Hardware info + benchmark
+    // -------------------------------------------------------------------------
+
+    ipcMain.handle("get-hardware-info", async () => {
+      try {
+        const { detectNvidiaGpu } = require("../utils/gpuDetection");
+        const gpu = await detectNvidiaGpu();
+        return {
+          gpu,
+          currentDevice: process.env.STT_DEVICE || "auto",
+          benchmarkMs: process.env.STT_BENCHMARK_MS
+            ? parseInt(process.env.STT_BENCHMARK_MS, 10)
+            : null,
+        };
+      } catch (error) {
+        debugLogger.error("get-hardware-info failed", { error: error.message });
+        return {
+          gpu: { hasNvidiaGpu: false },
+          currentDevice: process.env.STT_DEVICE || "auto",
+          benchmarkMs: null,
+        };
+      }
+    });
+
+    ipcMain.handle("run-stt-benchmark", async () => {
+      if (!this.fasterWhisperManager) {
+        return { success: false, error: "faster-whisper not available" };
+      }
+
+      try {
+        const device = process.env.STT_DEVICE || "auto";
+        const model = process.env.FASTER_WHISPER_MODEL || "base";
+
+        const startTime = Date.now();
+
+        // Start a session with current settings
+        await this.fasterWhisperManager.startSession({ model, device });
+
+        // Send 1 second of silence (16kHz mono 16-bit PCM = 32000 bytes)
+        const silenceBuffer = Buffer.alloc(32000, 0);
+        const silenceBase64 = silenceBuffer.toString("base64");
+        this.fasterWhisperManager.sendAudio(silenceBase64);
+
+        // Stop and measure
+        await this.fasterWhisperManager.stopSession();
+        const latencyMs = Date.now() - startTime;
+
+        // Persist result
+        process.env.STT_BENCHMARK_MS = String(latencyMs);
+        this.environmentManager.saveAllKeysToEnvFile().catch(() => {});
+
+        return { success: true, latencyMs, device, model };
+      } catch (error) {
+        debugLogger.error("run-stt-benchmark failed", { error: error.message });
+        return { success: false, error: error.message };
+      }
+    });
+
+    // -------------------------------------------------------------------------
     // faster-whisper batch transcription
     // -------------------------------------------------------------------------
 
@@ -1262,7 +1326,7 @@ class IPCHandlers {
         // Start a session, send audio, and get the final result
         await this.fasterWhisperManager.startSession({
           model: options.model || "base",
-          device: options.device,
+          device: options.device || process.env.STT_DEVICE || "auto",
           language: options.language,
           initialPrompt: options.initialPrompt,
         });

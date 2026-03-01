@@ -50,7 +50,10 @@ const computeBaseUrl = (candidates: Array<string | undefined>, fallback: string)
 };
 
 const DEFAULT_OPENAI_BASE = computeBaseUrl(
-  [env.BILINGOTYPE_OPENAI_BASE_URL as string | undefined, env.OPENAI_BASE_URL as string | undefined],
+  [
+    env.BILINGOTYPE_OPENAI_BASE_URL as string | undefined,
+    env.OPENAI_BASE_URL as string | undefined,
+  ],
   "https://api.openai.com/v1"
 );
 
@@ -75,6 +78,7 @@ export const CACHE_CONFIG = {
   MODEL_CACHE_SIZE: 3, // Maximum models to keep in memory
   AVAILABILITY_CHECK_TTL: 30000, // 30s for accessibility, FFmpeg, tool availability checks
   PASTE_DELAY_MS: 50, // Delay before paste simulation to allow clipboard to settle
+  API_KEY_TTL: 300000, // 5 minutes for API key validation cache
 } as const;
 
 // Retry Configuration

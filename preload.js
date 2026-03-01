@@ -168,6 +168,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   whisperServerStop: () => ipcRenderer.invoke("whisper-server-stop"),
   whisperServerStatus: () => ipcRenderer.invoke("whisper-server-status"),
 
+  // Hardware info + benchmark
+  getHardwareInfo: () => ipcRenderer.invoke("get-hardware-info"),
+  runSttBenchmark: () => ipcRenderer.invoke("run-stt-benchmark"),
+
   // CUDA GPU acceleration
   detectGpu: () => ipcRenderer.invoke("detect-gpu"),
   getCudaWhisperStatus: () => ipcRenderer.invoke("get-cuda-whisper-status"),

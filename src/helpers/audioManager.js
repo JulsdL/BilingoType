@@ -663,6 +663,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     window.electronAPI
       .fasterWhisperStreamingStart?.({
         model,
+        device: settings.sttDevice || "auto",
         language,
         initialPrompt: dictionaryPrompt,
       })
@@ -717,6 +718,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
       await window.electronAPI.fasterWhisperStreamingStart({
         model,
+        device: settings.sttDevice || "auto",
         language,
         initialPrompt: dictionaryPrompt,
       });

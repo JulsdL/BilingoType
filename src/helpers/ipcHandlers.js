@@ -950,15 +950,31 @@ class IPCHandlers {
       const setVars = {};
       const clearVars = [];
 
-      if (prefs.useLocalWhisper && prefs.model) {
-        // Local mode with model selected - set model for pre-warming
-        setVars.LOCAL_WHISPER_MODEL = prefs.model;
-      } else if (prefs.useLocalWhisper) {
-        // Local mode enabled but no model selected - clear pre-warming vars
-        clearVars.push("LOCAL_WHISPER_MODEL");
+      if (prefs.useLocalWhisper) {
+        // Persist the transcription provider
+        if (prefs.localTranscriptionProvider) {
+          setVars.LOCAL_TRANSCRIPTION_PROVIDER = prefs.localTranscriptionProvider;
+        }
+
+        // Persist the model for the active provider, clear others
+        if (prefs.localTranscriptionProvider === "faster-whisper") {
+          if (prefs.model) setVars.FASTER_WHISPER_MODEL = prefs.model;
+          clearVars.push("LOCAL_WHISPER_MODEL", "PARAKEET_MODEL");
+        } else if (prefs.localTranscriptionProvider === "nvidia") {
+          if (prefs.model) setVars.PARAKEET_MODEL = prefs.model;
+          clearVars.push("LOCAL_WHISPER_MODEL", "FASTER_WHISPER_MODEL");
+        } else {
+          if (prefs.model) setVars.LOCAL_WHISPER_MODEL = prefs.model;
+          clearVars.push("FASTER_WHISPER_MODEL", "PARAKEET_MODEL");
+        }
       } else {
-        // Not using local whisper - stop server to free RAM
-        clearVars.push("LOCAL_WHISPER_MODEL");
+        // Not using local whisper — clear all model vars, stop servers
+        clearVars.push(
+          "LOCAL_WHISPER_MODEL",
+          "FASTER_WHISPER_MODEL",
+          "PARAKEET_MODEL",
+          "LOCAL_TRANSCRIPTION_PROVIDER"
+        );
         this.whisperManager.stopServer().catch((err) => {
           debugLogger.error("Failed to stop whisper-server", {
             error: err.message,
@@ -966,7 +982,6 @@ class IPCHandlers {
         });
       }
 
-      // Persist STT device preference
       if (prefs.sttDevice) {
         setVars.STT_DEVICE = prefs.sttDevice;
       }

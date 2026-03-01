@@ -195,7 +195,8 @@ async function startApp() {
     fasterWhisperManager.isAvailable()
   ) {
     const fwModel = process.env.FASTER_WHISPER_MODEL || "base";
-    fasterWhisperManager.start(fwModel).catch((err) => {
+    const fwDevice = process.env.STT_DEVICE || "auto";
+    fasterWhisperManager.start(fwModel, { device: fwDevice }).catch((err) => {
       debugLogger.debug("faster-whisper startup init error (non-fatal)", { error: err.message });
     });
   }

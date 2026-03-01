@@ -396,6 +396,33 @@ On GNOME Wayland, Electron's `globalShortcut` API doesn't work due to Wayland's 
 - GNOME format: `<Alt>r`, `<Control><Shift>space`
 - Backtick (`) → `grave` in GNOME keysym format
 
+## Codegraph (Dependency Intelligence)
+
+Codegraph is installed for function-level dependency analysis. Use CLI commands (not MCP) to query the graph before modifying code.
+
+**Rebuild after structural changes:**
+```bash
+codegraph build
+```
+
+**Before modifying a function** — check what depends on it:
+```bash
+codegraph fn-impact <name> -T    # blast radius
+codegraph context <name> -T      # full context (source, deps, callers)
+```
+
+**Before committing** — verify impact of staged changes:
+```bash
+codegraph diff-impact --staged -T
+```
+
+**Finding symbols and understanding structure:**
+```bash
+codegraph where <name>           # locate any symbol
+codegraph hotspots               # find complex/coupled code
+codegraph complexity --health    # code health overview
+```
+
 ## Development Guidelines
 
 ### Internationalization (i18n) — REQUIRED

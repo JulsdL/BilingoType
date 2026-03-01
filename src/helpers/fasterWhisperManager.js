@@ -15,6 +15,8 @@ const HEALTH_CHECK_INTERVAL_MS = 5000;
 const READY_SIGNAL = "BILINGOTYPE_STT_READY:";
 const WS_RECONNECT_DELAY_MS = 1000;
 const WS_MAX_RECONNECTS = 3;
+const MAX_RESTART_ATTEMPTS = 3;
+const RESTART_BACKOFF_MS = 2000;
 
 class FasterWhisperManager extends EventEmitter {
   constructor() {
@@ -29,6 +31,8 @@ class FasterWhisperManager extends EventEmitter {
     this.healthCheckInterval = null;
     this._pendingFinal = null;
     this._wsReconnectCount = 0;
+    this._restartAttempts = 0;
+    this._restartTimer = null;
   }
 
   // ---------------------------------------------------------------------------
@@ -199,6 +203,11 @@ class FasterWhisperManager extends EventEmitter {
       this.process = null;
       this._closeWebSocket();
       this._stopHealthCheck();
+
+      // Schedule restart on unexpected crash (non-zero exit, not intentional stop)
+      if (code !== 0 && code !== null && this.currentModel) {
+        this._scheduleRestart();
+      }
     });
 
     // Wait for READY signal on stdout
@@ -218,11 +227,7 @@ class FasterWhisperManager extends EventEmitter {
   async _waitForReady(getStderr) {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        reject(
-          new Error(
-            `faster-whisper sidecar failed to start within ${STARTUP_TIMEOUT_MS}ms`
-          )
-        );
+        reject(new Error(`faster-whisper sidecar failed to start within ${STARTUP_TIMEOUT_MS}ms`));
       }, STARTUP_TIMEOUT_MS);
 
       if (!this.process) {
@@ -364,15 +369,19 @@ class FasterWhisperManager extends EventEmitter {
     this._stopHealthCheck();
     this.healthCheckInterval = setInterval(() => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-        debugLogger.warn("faster-whisper health check: WebSocket not open");
+        debugLogger.warn("faster-whisper health check: WebSocket not open, scheduling restart");
         this.ready = false;
+        this._stopHealthCheck();
+        this._scheduleRestart();
         return;
       }
       try {
         this._sendWs({ type: "ping" });
       } catch {
-        debugLogger.warn("faster-whisper health check: ping failed");
+        debugLogger.warn("faster-whisper health check: ping failed, scheduling restart");
         this.ready = false;
+        this._stopHealthCheck();
+        this._scheduleRestart();
       }
     }, HEALTH_CHECK_INTERVAL_MS);
   }
@@ -382,6 +391,49 @@ class FasterWhisperManager extends EventEmitter {
       clearInterval(this.healthCheckInterval);
       this.healthCheckInterval = null;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Crash recovery
+  // ---------------------------------------------------------------------------
+
+  _scheduleRestart() {
+    if (this._restartAttempts >= MAX_RESTART_ATTEMPTS) {
+      debugLogger.error("faster-whisper max restart attempts reached", {
+        attempts: this._restartAttempts,
+      });
+      this.emit("stt-error", {
+        message: "STT sidecar crashed and could not be restarted",
+        recoverable: false,
+      });
+      this._restartAttempts = 0;
+      return;
+    }
+
+    const delay = RESTART_BACKOFF_MS * Math.pow(2, this._restartAttempts);
+    this._restartAttempts++;
+
+    debugLogger.warn("Scheduling faster-whisper restart", {
+      attempt: this._restartAttempts,
+      delayMs: delay,
+    });
+
+    this._restartTimer = setTimeout(async () => {
+      this._restartTimer = null;
+      try {
+        await this.start(this.currentModel, { device: this.currentDevice });
+        debugLogger.info("faster-whisper restarted successfully", {
+          attempt: this._restartAttempts,
+        });
+        this._restartAttempts = 0;
+      } catch (err) {
+        debugLogger.error("faster-whisper restart failed", {
+          attempt: this._restartAttempts,
+          error: err.message,
+        });
+        // start() failure will trigger another close event → _scheduleRestart
+      }
+    }, delay);
   }
 
   // ---------------------------------------------------------------------------
@@ -406,7 +458,10 @@ class FasterWhisperManager extends EventEmitter {
 
     // Wait for ready signal
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("Session start timeout")), STARTUP_TIMEOUT_MS);
+      const timeout = setTimeout(
+        () => reject(new Error("Session start timeout")),
+        STARTUP_TIMEOUT_MS
+      );
       const onReady = () => {
         clearTimeout(timeout);
         resolve({ success: true });
@@ -459,6 +514,14 @@ class FasterWhisperManager extends EventEmitter {
   // ---------------------------------------------------------------------------
 
   async stop() {
+    // Clear restart state to prevent restart after intentional stop
+    if (this._restartTimer) {
+      clearTimeout(this._restartTimer);
+      this._restartTimer = null;
+    }
+    this._restartAttempts = 0;
+    this.currentModel = null;
+
     this._stopHealthCheck();
     this._closeWebSocket();
 
@@ -497,7 +560,6 @@ class FasterWhisperManager extends EventEmitter {
     this.process = null;
     this.ready = false;
     this.port = null;
-    this.currentModel = null;
   }
 
   // ---------------------------------------------------------------------------

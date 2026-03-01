@@ -318,8 +318,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       let activeModel;
 
       if (localProvider === "faster-whisper") {
-        activeModel = whisperModel;
-        result = await this.processWithFasterWhisper(audioBlob, whisperModel, metadata);
+        const fwModel = s.fasterWhisperModel || whisperModel || "base";
+        activeModel = fwModel;
+        result = await this.processWithFasterWhisper(audioBlob, fwModel, metadata);
       } else if (localProvider === "nvidia") {
         activeModel = parakeetModel;
         result = await this.processWithLocalParakeet(audioBlob, parakeetModel, metadata);
@@ -652,7 +653,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
   warmupStreamingConnection() {
     const settings = getSettings();
-    const model = settings.whisperModel || "base";
+    const model =
+      settings.localTranscriptionProvider === "faster-whisper"
+        ? settings.fasterWhisperModel || "base"
+        : settings.whisperModel || "base";
     const language = getBaseLanguageCode(settings.preferredLanguage) || null;
     const dictionaryPrompt = this.getCustomDictionaryPrompt();
 
@@ -704,7 +708,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
       // 6. Start session with sidecar
       const settings = getSettings();
-      const model = settings.whisperModel || "base";
+      const model =
+        settings.localTranscriptionProvider === "faster-whisper"
+          ? settings.fasterWhisperModel || "base"
+          : settings.whisperModel || "base";
       const language = getBaseLanguageCode(settings.preferredLanguage) || null;
       const dictionaryPrompt = this.getCustomDictionaryPrompt();
 

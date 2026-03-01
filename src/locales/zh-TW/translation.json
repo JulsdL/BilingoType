@@ -283,6 +283,11 @@
       "multilingual": "25 種語言",
       "english": "英文"
     },
+    "fasterWhisper": {
+      "autoDownload": "模型會在首次使用時自動下載",
+      "unavailable": "Faster Whisper 需要 uv（Python 套件管理器）",
+      "installGuide": "安裝 uv：https://docs.astral.sh/uv/"
+    },
     "apiKeyOptional": "API Key（選填）",
     "getKey": "取得金鑰 ->",
     "endpointUrl": "端點 URL",

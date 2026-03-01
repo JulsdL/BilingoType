@@ -67,6 +67,7 @@ export interface SettingsState
   setWhisperModel: (value: string) => void;
   setLocalTranscriptionProvider: (value: LocalTranscriptionProvider) => void;
   setParakeetModel: (value: string) => void;
+  setFasterWhisperModel: (value: string) => void;
   setPreferredLanguage: (value: string) => void;
   setCustomDictionary: (words: string[]) => void;
   setUiLanguage: (language: string) => void;
@@ -109,6 +110,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     return "whisper";
   })() as LocalTranscriptionProvider,
   parakeetModel: readString("parakeetModel", ""),
+  fasterWhisperModel: readString("fasterWhisperModel", "base"),
   preferredLanguage: readString("preferredLanguage", "auto"),
   customDictionary: readStringArray("customDictionary", []),
 
@@ -141,6 +143,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     set({ localTranscriptionProvider: value });
   },
   setParakeetModel: createStringSetter("parakeetModel"),
+  setFasterWhisperModel: createStringSetter("fasterWhisperModel"),
   setPreferredLanguage: createStringSetter("preferredLanguage"),
 
   setCustomDictionary: (words: string[]) => {
@@ -220,6 +223,8 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (settings.localTranscriptionProvider !== undefined)
       s.setLocalTranscriptionProvider(settings.localTranscriptionProvider);
     if (settings.parakeetModel !== undefined) s.setParakeetModel(settings.parakeetModel);
+    if (settings.fasterWhisperModel !== undefined)
+      s.setFasterWhisperModel(settings.fasterWhisperModel);
     if (settings.preferredLanguage !== undefined)
       s.setPreferredLanguage(settings.preferredLanguage);
     if (settings.customDictionary !== undefined) s.setCustomDictionary(settings.customDictionary);

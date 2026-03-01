@@ -283,6 +283,11 @@
       "multilingual": "25 languages",
       "english": "English"
     },
+    "fasterWhisper": {
+      "autoDownload": "Models are automatically downloaded on first use",
+      "unavailable": "Faster Whisper requires uv (Python package manager)",
+      "installGuide": "Install uv: https://docs.astral.sh/uv/"
+    },
     "apiKeyOptional": "API Key (Optional)",
     "getKey": "Get key ->",
     "endpointUrl": "Endpoint URL",

@@ -134,6 +134,8 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
     setWhisperModel,
     setLocalTranscriptionProvider,
     setParakeetModel,
+    fasterWhisperModel,
+    setFasterWhisperModel,
     setDictationKey,
     autoLearnCorrections,
     setAutoLearnCorrections,
@@ -786,11 +788,17 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
 
             <TranscriptionModelPicker
               selectedLocalModel={
-                localTranscriptionProvider === "nvidia" ? parakeetModel : whisperModel
+                localTranscriptionProvider === "nvidia"
+                  ? parakeetModel
+                  : localTranscriptionProvider === "faster-whisper"
+                    ? fasterWhisperModel
+                    : whisperModel
               }
               onLocalModelSelect={(modelId) => {
                 if (localTranscriptionProvider === "nvidia") {
                   setParakeetModel(modelId);
+                } else if (localTranscriptionProvider === "faster-whisper") {
+                  setFasterWhisperModel(modelId);
                 } else {
                   setWhisperModel(modelId);
                 }

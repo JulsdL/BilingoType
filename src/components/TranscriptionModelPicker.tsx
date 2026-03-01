@@ -99,9 +99,7 @@ function LocalModelCard({
         </div>
 
         <div className="flex-1 min-w-0 flex items-center gap-1.5">
-          {providerIcon && (
-            <img src={providerIcon} alt="" className="w-3.5 h-3.5 shrink-0" />
-          )}
+          {providerIcon && <img src={providerIcon} alt="" className="w-3.5 h-3.5 shrink-0" />}
           <span className="font-semibold text-sm text-foreground truncate tracking-tight">
             {name}
           </span>
@@ -184,6 +182,7 @@ export interface TranscriptionModelPickerProps {
 const LOCAL_PROVIDER_TABS: Array<{ id: string; name: string; disabled?: boolean }> = [
   { id: "whisper", name: "OpenAI Whisper" },
   { id: "nvidia", name: "NVIDIA Parakeet" },
+  { id: "faster-whisper", name: "Faster Whisper" },
 ];
 
 export default function TranscriptionModelPicker({
@@ -208,6 +207,7 @@ export default function TranscriptionModelPicker({
     percentage: 0,
   });
   const [cudaDismissed, setCudaDismissed] = useState(false);
+  const [fasterWhisperAvailable, setFasterWhisperAvailable] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (selectedLocalProvider !== internalLocalProvider) {
@@ -296,6 +296,15 @@ export default function TranscriptionModelPicker({
     } else if (internalLocalProvider === "nvidia" && !hasLoadedParakeetRef.current) {
       hasLoadedParakeetRef.current = true;
       loadParakeetModelsRef.current?.();
+    }
+  }, [internalLocalProvider]);
+
+  useEffect(() => {
+    if (internalLocalProvider === "faster-whisper") {
+      window.electronAPI
+        ?.fasterWhisperStatus?.()
+        .then((status) => setFasterWhisperAvailable(status?.installed ?? false))
+        .catch(() => setFasterWhisperAvailable(false));
     }
   }, [internalLocalProvider]);
 
@@ -401,6 +410,15 @@ export default function TranscriptionModelPicker({
     (modelId: string) => {
       onLocalProviderSelect?.("nvidia");
       setInternalLocalProvider("nvidia");
+      onLocalModelSelect(modelId);
+    },
+    [onLocalModelSelect, onLocalProviderSelect]
+  );
+
+  const handleFasterWhisperModelSelect = useCallback(
+    (modelId: string) => {
+      onLocalProviderSelect?.("faster-whisper");
+      setInternalLocalProvider("faster-whisper");
       onLocalModelSelect(modelId);
     },
     [onLocalModelSelect, onLocalProviderSelect]
@@ -595,6 +613,54 @@ export default function TranscriptionModelPicker({
     );
   };
 
+  const renderFasterWhisperModels = () => {
+    if (fasterWhisperAvailable === false) {
+      return (
+        <div className="space-y-2 text-center py-4">
+          <p className="text-xs text-muted-foreground">
+            {t("transcription.fasterWhisper.unavailable")}
+          </p>
+          <a
+            href="https://docs.astral.sh/uv/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-primary hover:underline"
+          >
+            {t("transcription.fasterWhisper.installGuide")}
+          </a>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-0.5">
+        <p className="text-xs text-muted-foreground/60 px-1 pb-1">
+          {t("transcription.fasterWhisper.autoDownload")}
+        </p>
+        {Object.entries(WHISPER_MODEL_INFO).map(([modelId, info]) => (
+          <LocalModelCard
+            key={modelId}
+            modelId={modelId}
+            name={info.name}
+            description={info.description}
+            size={info.size}
+            isSelected={modelId === selectedLocalModel}
+            isDownloaded={true}
+            isDownloading={false}
+            isCancelling={false}
+            recommended={info.recommended}
+            provider="faster-whisper"
+            onSelect={() => handleFasterWhisperModelSelect(modelId)}
+            onDelete={() => {}}
+            onDownload={() => {}}
+            onCancel={() => {}}
+            styles={styles}
+          />
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className={`space-y-2 ${className}`}>
       <div className={styles.container}>
@@ -676,6 +742,7 @@ export default function TranscriptionModelPicker({
         <div className="p-2">
           {internalLocalProvider === "whisper" && renderLocalModels()}
           {internalLocalProvider === "nvidia" && renderParakeetModels()}
+          {internalLocalProvider === "faster-whisper" && renderFasterWhisperModels()}
         </div>
       </div>
 

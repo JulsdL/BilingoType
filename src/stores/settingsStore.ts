@@ -2,7 +2,6 @@ import { create } from "zustand";
 import i18n, { normalizeUiLanguage } from "../i18n";
 import { ensureAgentNameInDictionary } from "../utils/agentName";
 import logger from "../utils/logger";
-import type { LocalTranscriptionProvider } from "../types/electron";
 import type {
   TranscriptionSettings,
   HotkeySettings,
@@ -38,7 +37,6 @@ function readStringArray(key: string, fallback: string[]): string[] {
 }
 
 const BOOLEAN_SETTINGS = new Set([
-  "useLocalWhisper",
   "preferBuiltInMic",
   "audioCuesEnabled",
   "floatingIconAutoHide",
@@ -63,10 +61,6 @@ export interface SettingsState
   audioCuesEnabled: boolean;
   floatingIconAutoHide: boolean;
 
-  setUseLocalWhisper: (value: boolean) => void;
-  setWhisperModel: (value: string) => void;
-  setLocalTranscriptionProvider: (value: LocalTranscriptionProvider) => void;
-  setParakeetModel: (value: string) => void;
   setFasterWhisperModel: (value: string) => void;
   setPreferredLanguage: (value: string) => void;
   setCustomDictionary: (words: string[]) => void;
@@ -102,14 +96,6 @@ function createBooleanSetter(key: string) {
 
 export const useSettingsStore = create<SettingsState>()((set, get) => ({
   uiLanguage: normalizeUiLanguage(isBrowser ? localStorage.getItem("uiLanguage") : null),
-  useLocalWhisper: readBoolean("useLocalWhisper", true),
-  whisperModel: readString("whisperModel", "base"),
-  localTranscriptionProvider: (() => {
-    const val = readString("localTranscriptionProvider", "whisper");
-    if (val === "nvidia" || val === "faster-whisper") return val;
-    return "whisper";
-  })() as LocalTranscriptionProvider,
-  parakeetModel: readString("parakeetModel", ""),
   fasterWhisperModel: readString("fasterWhisperModel", "base"),
   preferredLanguage: readString("preferredLanguage", "auto"),
   customDictionary: readStringArray("customDictionary", []),
@@ -136,13 +122,6 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   audioCuesEnabled: readBoolean("audioCuesEnabled", true),
   floatingIconAutoHide: readBoolean("floatingIconAutoHide", false),
 
-  setUseLocalWhisper: createBooleanSetter("useLocalWhisper"),
-  setWhisperModel: createStringSetter("whisperModel"),
-  setLocalTranscriptionProvider: (value: LocalTranscriptionProvider) => {
-    if (isBrowser) localStorage.setItem("localTranscriptionProvider", value);
-    set({ localTranscriptionProvider: value });
-  },
-  setParakeetModel: createStringSetter("parakeetModel"),
   setFasterWhisperModel: createStringSetter("fasterWhisperModel"),
   setPreferredLanguage: createStringSetter("preferredLanguage"),
 
@@ -217,12 +196,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
 
   updateTranscriptionSettings: (settings: Partial<TranscriptionSettings>) => {
     const s = useSettingsStore.getState();
-    if (settings.useLocalWhisper !== undefined) s.setUseLocalWhisper(settings.useLocalWhisper);
     if (settings.uiLanguage !== undefined) s.setUiLanguage(settings.uiLanguage);
-    if (settings.whisperModel !== undefined) s.setWhisperModel(settings.whisperModel);
-    if (settings.localTranscriptionProvider !== undefined)
-      s.setLocalTranscriptionProvider(settings.localTranscriptionProvider);
-    if (settings.parakeetModel !== undefined) s.setParakeetModel(settings.parakeetModel);
     if (settings.fasterWhisperModel !== undefined)
       s.setFasterWhisperModel(settings.fasterWhisperModel);
     if (settings.preferredLanguage !== undefined)

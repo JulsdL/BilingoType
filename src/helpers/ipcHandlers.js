@@ -12,23 +12,15 @@ class IPCHandlers {
     this.environmentManager = managers.environmentManager;
     this.databaseManager = managers.databaseManager;
     this.clipboardManager = managers.clipboardManager;
-    this.whisperManager = managers.whisperManager;
     this.windowManager = managers.windowManager;
     this.updateManager = managers.updateManager;
     this.windowsKeyManager = managers.windowsKeyManager;
     this.getTrayManager = managers.getTrayManager;
-    this.whisperCudaManager = managers.whisperCudaManager;
     this.fasterWhisperManager = managers.fasterWhisperManager;
     this._autoLearnEnabled = true; // Default on, synced from renderer
     this._autoLearnDebounceTimer = null;
     this._autoLearnLatestData = null;
     this.setupHandlers();
-
-    if (this.whisperManager?.serverManager) {
-      this.whisperManager.serverManager.on("cuda-fallback", () => {
-        this.broadcastToWindows("cuda-fallback-notification", {});
-      });
-    }
 
     if (this.fasterWhisperManager) {
       this.fasterWhisperManager.on("partial-transcript", (data) => {
@@ -180,18 +172,6 @@ class IPCHandlers {
 
     ipcMain.handle("resize-main-window", (event, sizeKey) => {
       return this.windowManager.resizeMainWindow(sizeKey);
-    });
-
-    ipcMain.handle("get-openai-key", async (event) => {
-      return this.environmentManager.getOpenAIKey();
-    });
-
-    ipcMain.handle("save-openai-key", async (event, key) => {
-      return this.environmentManager.saveOpenAIKey(key);
-    });
-
-    ipcMain.handle("create-production-env-file", async (event, apiKey) => {
-      return this.environmentManager.createProductionEnvFile(apiKey);
     });
 
     ipcMain.handle("db-save-transcription", async (event, text) => {
@@ -464,8 +444,19 @@ class IPCHandlers {
     ipcMain.handle("transcribe-audio-file", async (event, filePath, options = {}) => {
       const fs = require("fs");
       try {
+        // Route through faster-whisper batch transcription
         const audioBuffer = fs.readFileSync(filePath);
-        const result = await this.whisperManager.transcribeLocalWhisper(audioBuffer, options);
+        if (!this.fasterWhisperManager) {
+          return { success: false, error: "faster-whisper not available" };
+        }
+        await this.fasterWhisperManager.startSession({
+          model: options.model || "base",
+          device: process.env.STT_DEVICE || "auto",
+          language: options.language || null,
+        });
+        const pcmBase64 = audioBuffer.toString("base64");
+        this.fasterWhisperManager.sendAudio(pcmBase64);
+        const result = await this.fasterWhisperManager.stopSession();
         return result;
       } catch (error) {
         debugLogger.error("Audio file transcription error", { error: error.message });
@@ -512,206 +503,15 @@ class IPCHandlers {
       return this.clipboardManager.checkPasteTools();
     });
 
-    ipcMain.handle("transcribe-local-whisper", async (event, audioBlob, options = {}) => {
-      debugLogger.log("transcribe-local-whisper called", {
-        audioBlobType: typeof audioBlob,
-        audioBlobSize: audioBlob?.byteLength || audioBlob?.length || 0,
-        options,
-      });
-
-      try {
-        const result = await this.whisperManager.transcribeLocalWhisper(audioBlob, options);
-
-        debugLogger.log("Whisper result", {
-          success: result.success,
-          hasText: !!result.text,
-          message: result.message,
-          error: result.error,
-        });
-
-        // Check if no audio was detected and send appropriate event
-        if (!result.success && result.message === "No audio detected") {
-          debugLogger.log("Sending no-audio-detected event to renderer");
-          event.sender.send("no-audio-detected");
-        }
-
-        return result;
-      } catch (error) {
-        debugLogger.error("Local Whisper transcription error", error);
-        const errorMessage = error.message || "Unknown error";
-
-        // Return specific error types for better user feedback
-        if (errorMessage.includes("FFmpeg not found")) {
-          return {
-            success: false,
-            error: "ffmpeg_not_found",
-            message: "FFmpeg is missing. Please reinstall the app or install FFmpeg manually.",
-          };
-        }
-        if (
-          errorMessage.includes("FFmpeg conversion failed") ||
-          errorMessage.includes("FFmpeg process error")
-        ) {
-          return {
-            success: false,
-            error: "ffmpeg_error",
-            message: "Audio conversion failed. The recording may be corrupted.",
-          };
-        }
-        if (
-          errorMessage.includes("whisper.cpp not found") ||
-          errorMessage.includes("whisper-cpp")
-        ) {
-          return {
-            success: false,
-            error: "whisper_not_found",
-            message: "Whisper binary is missing. Please reinstall the app.",
-          };
-        }
-        if (
-          errorMessage.includes("Audio buffer is empty") ||
-          errorMessage.includes("Audio data too small")
-        ) {
-          return {
-            success: false,
-            error: "no_audio_data",
-            message: "No audio detected",
-          };
-        }
-        if (errorMessage.includes("model") && errorMessage.includes("not downloaded")) {
-          return {
-            success: false,
-            error: "model_not_found",
-            message: errorMessage,
-          };
-        }
-
-        throw error;
-      }
-    });
-
-    ipcMain.handle("check-whisper-installation", async (event) => {
-      return this.whisperManager.checkWhisperInstallation();
-    });
-
-    ipcMain.handle("get-audio-diagnostics", async () => {
-      return this.whisperManager.getDiagnostics();
-    });
-
-    ipcMain.handle("download-whisper-model", async (event, modelName) => {
-      try {
-        const result = await this.whisperManager.downloadWhisperModel(modelName, (progressData) => {
-          if (!event.sender.isDestroyed()) {
-            event.sender.send("whisper-download-progress", progressData);
-          }
-        });
-        return result;
-      } catch (error) {
-        if (!event.sender.isDestroyed()) {
-          event.sender.send("whisper-download-progress", {
-            type: "error",
-            model: modelName,
-            error: error.message,
-            code: error.code || "DOWNLOAD_FAILED",
-          });
-        }
-        return {
-          success: false,
-          error: error.message,
-          code: error.code || "DOWNLOAD_FAILED",
-        };
-      }
-    });
-
-    ipcMain.handle("check-model-status", async (event, modelName) => {
-      return this.whisperManager.checkModelStatus(modelName);
-    });
-
-    ipcMain.handle("list-whisper-models", async (event) => {
-      return this.whisperManager.listWhisperModels();
-    });
-
-    ipcMain.handle("delete-whisper-model", async (event, modelName) => {
-      return this.whisperManager.deleteWhisperModel(modelName);
-    });
-
-    ipcMain.handle("delete-all-whisper-models", async () => {
-      return this.whisperManager.deleteAllWhisperModels();
-    });
-
-    ipcMain.handle("cancel-whisper-download", async (event) => {
-      return this.whisperManager.cancelDownload();
-    });
-
-    ipcMain.handle("whisper-server-start", async (event, modelName) => {
-      const useCuda =
-        process.env.WHISPER_CUDA_ENABLED === "true" && this.whisperCudaManager?.isDownloaded();
-      return this.whisperManager.startServer(modelName, { useCuda });
-    });
-
-    ipcMain.handle("whisper-server-stop", async () => {
-      return this.whisperManager.stopServer();
-    });
-
-    ipcMain.handle("whisper-server-status", async () => {
-      return this.whisperManager.getServerStatus();
-    });
-
     ipcMain.handle("detect-gpu", async () => {
       const { detectNvidiaGpu } = require("../utils/gpuDetection");
       return detectNvidiaGpu();
     });
 
-    ipcMain.handle("get-cuda-whisper-status", async () => {
+    ipcMain.handle("get-cuda-status", async () => {
       const { detectNvidiaGpu } = require("../utils/gpuDetection");
       const gpuInfo = await detectNvidiaGpu();
-      if (!this.whisperCudaManager) {
-        return { downloaded: false, path: null, gpuInfo };
-      }
-      return {
-        downloaded: this.whisperCudaManager.isDownloaded(),
-        path: this.whisperCudaManager.getCudaBinaryPath(),
-        gpuInfo,
-      };
-    });
-
-    ipcMain.handle("download-cuda-whisper-binary", async (event) => {
-      if (!this.whisperCudaManager) {
-        return { success: false, error: "CUDA not supported on this platform" };
-      }
-      try {
-        await this.whisperCudaManager.download((progress) => {
-          if (progress.type === "progress" && !event.sender.isDestroyed()) {
-            event.sender.send("cuda-download-progress", {
-              downloadedBytes: progress.downloaded_bytes,
-              totalBytes: progress.total_bytes,
-              percentage: progress.percentage,
-            });
-          }
-        });
-        this._syncStartupEnv({ WHISPER_CUDA_ENABLED: "true" });
-        return { success: true };
-      } catch (error) {
-        return { success: false, error: error.message };
-      }
-    });
-
-    ipcMain.handle("cancel-cuda-whisper-download", async () => {
-      if (!this.whisperCudaManager) return { success: false };
-      return this.whisperCudaManager.cancelDownload();
-    });
-
-    ipcMain.handle("delete-cuda-whisper-binary", async () => {
-      if (!this.whisperCudaManager) return { success: false };
-      const result = await this.whisperCudaManager.delete();
-      if (result.success) {
-        this._syncStartupEnv({}, ["WHISPER_CUDA_ENABLED"]);
-      }
-      return result;
-    });
-
-    ipcMain.handle("check-ffmpeg-availability", async (event) => {
-      return this.whisperManager.checkFFmpegAvailability();
+      return { gpuInfo };
     });
 
     ipcMain.handle("cleanup-app", async (event) => {
@@ -861,50 +661,6 @@ class IPCHandlers {
       }
     });
 
-    ipcMain.handle("get-anthropic-key", async (event) => {
-      return this.environmentManager.getAnthropicKey();
-    });
-
-    ipcMain.handle("get-gemini-key", async (event) => {
-      return this.environmentManager.getGeminiKey();
-    });
-
-    ipcMain.handle("save-gemini-key", async (event, key) => {
-      return this.environmentManager.saveGeminiKey(key);
-    });
-
-    ipcMain.handle("get-groq-key", async (event) => {
-      return this.environmentManager.getGroqKey();
-    });
-
-    ipcMain.handle("save-groq-key", async (event, key) => {
-      return this.environmentManager.saveGroqKey(key);
-    });
-
-    ipcMain.handle("get-mistral-key", async () => {
-      return this.environmentManager.getMistralKey();
-    });
-
-    ipcMain.handle("save-mistral-key", async (event, key) => {
-      return this.environmentManager.saveMistralKey(key);
-    });
-
-    ipcMain.handle("get-custom-transcription-key", async () => {
-      return this.environmentManager.getCustomTranscriptionKey();
-    });
-
-    ipcMain.handle("save-custom-transcription-key", async (event, key) => {
-      return this.environmentManager.saveCustomTranscriptionKey(key);
-    });
-
-    ipcMain.handle("get-custom-reasoning-key", async () => {
-      return this.environmentManager.getCustomReasoningKey();
-    });
-
-    ipcMain.handle("save-custom-reasoning-key", async (event, key) => {
-      return this.environmentManager.saveCustomReasoningKey(key);
-    });
-
     ipcMain.handle("get-dictation-key", async () => {
       return this.environmentManager.getDictationKey();
     });
@@ -919,10 +675,6 @@ class IPCHandlers {
 
     ipcMain.handle("save-activation-mode", async (event, mode) => {
       return this.environmentManager.saveActivationMode(mode);
-    });
-
-    ipcMain.handle("save-anthropic-key", async (event, key) => {
-      return this.environmentManager.saveAnthropicKey(key);
     });
 
     ipcMain.handle("get-ui-language", async () => {
@@ -950,36 +702,8 @@ class IPCHandlers {
       const setVars = {};
       const clearVars = [];
 
-      if (prefs.useLocalWhisper) {
-        // Persist the transcription provider
-        if (prefs.localTranscriptionProvider) {
-          setVars.LOCAL_TRANSCRIPTION_PROVIDER = prefs.localTranscriptionProvider;
-        }
-
-        // Persist the model for the active provider, clear others
-        if (prefs.localTranscriptionProvider === "faster-whisper") {
-          if (prefs.model) setVars.FASTER_WHISPER_MODEL = prefs.model;
-          clearVars.push("LOCAL_WHISPER_MODEL", "PARAKEET_MODEL");
-        } else if (prefs.localTranscriptionProvider === "nvidia") {
-          if (prefs.model) setVars.PARAKEET_MODEL = prefs.model;
-          clearVars.push("LOCAL_WHISPER_MODEL", "FASTER_WHISPER_MODEL");
-        } else {
-          if (prefs.model) setVars.LOCAL_WHISPER_MODEL = prefs.model;
-          clearVars.push("FASTER_WHISPER_MODEL", "PARAKEET_MODEL");
-        }
-      } else {
-        // Not using local whisper — clear all model vars, stop servers
-        clearVars.push(
-          "LOCAL_WHISPER_MODEL",
-          "FASTER_WHISPER_MODEL",
-          "PARAKEET_MODEL",
-          "LOCAL_TRANSCRIPTION_PROVIDER"
-        );
-        this.whisperManager.stopServer().catch((err) => {
-          debugLogger.error("Failed to stop whisper-server", {
-            error: err.message,
-          });
-        });
+      if (prefs.model) {
+        setVars.FASTER_WHISPER_MODEL = prefs.model;
       }
 
       if (prefs.sttDevice) {
@@ -1050,17 +774,6 @@ class IPCHandlers {
       const { systemPreferences } = require("electron");
       const granted = await systemPreferences.askForMediaAccess("microphone");
       return { granted };
-    });
-
-    ipcMain.handle("open-whisper-models-folder", async () => {
-      try {
-        const modelsDir = this.whisperManager.getModelsDir();
-        await shell.openPath(modelsDir);
-        return { success: true };
-      } catch (error) {
-        debugLogger.error("Failed to open whisper models folder:", error);
-        return { success: false, error: error.message };
-      }
     });
 
     ipcMain.handle("get-debug-state", async () => {
@@ -1254,18 +967,13 @@ class IPCHandlers {
     // -------------------------------------------------------------------------
 
     ipcMain.handle("get-stt-config", async () => {
-      const provider = process.env.LOCAL_TRANSCRIPTION_PROVIDER || "whisper";
       const hasFasterWhisper = this.fasterWhisperManager?.isAvailable() ?? false;
-
-      // Only enable streaming if faster-whisper is available and selected
-      const streamingMode =
-        provider === "faster-whisper" && hasFasterWhisper ? "streaming" : "batch";
 
       return {
         success: true,
-        dictation: { mode: streamingMode },
-        notes: { mode: "batch" }, // Notes always use batch for now
-        streamingProvider: provider === "faster-whisper" ? "faster-whisper" : null,
+        dictation: { mode: hasFasterWhisper ? "streaming" : "batch" },
+        notes: { mode: "batch" },
+        streamingProvider: hasFasterWhisper ? "faster-whisper" : null,
       };
     });
 

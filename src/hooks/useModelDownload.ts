@@ -16,7 +16,7 @@ export interface DownloadProgress {
   eta?: number;
 }
 
-export type ModelType = "whisper" | "llm" | "parakeet";
+export type ModelType = "faster-whisper";
 
 interface UseModelDownloadOptions {
   modelType: ModelType;
@@ -155,20 +155,10 @@ export function useModelDownload({
   }, []);
 
   useEffect(() => {
-    let dispose: (() => void) | undefined;
-
-    if (modelType === "whisper") {
-      dispose = window.electronAPI?.onWhisperDownloadProgress(handleWhisperProgress);
-    } else if (modelType === "parakeet") {
-      dispose = window.electronAPI?.onParakeetDownloadProgress(handleWhisperProgress);
-    } else {
-      dispose = window.electronAPI?.onModelDownloadProgress(handleLLMProgress);
-    }
-
-    return () => {
-      dispose?.();
-    };
-  }, [handleWhisperProgress, handleLLMProgress, modelType]);
+    // faster-whisper auto-downloads models via the Python sidecar,
+    // so no progress listener is needed for now.
+    return undefined;
+  }, [modelType]);
 
   const downloadModel = useCallback(
     async (modelId: string, onSelectAfterDownload?: (id: string) => void) => {
@@ -186,56 +176,9 @@ export function useModelDownload({
         setDownloadProgress({ percentage: 0, downloadedBytes: 0, totalBytes: 0 });
         lastProgressUpdateRef.current = 0; // Reset throttle timer
 
-        let success = false;
-
-        if (modelType === "whisper") {
-          const result = await window.electronAPI?.downloadWhisperModel(modelId);
-          if (!result?.success && !result?.error?.includes("interrupted by user")) {
-            const msg = getDownloadErrorMessage(
-              t,
-              result?.error || t("hooks.modelDownload.errors.unknown"),
-              result?.code
-            );
-            setDownloadError(msg);
-            showAlertDialog({
-              title: t("hooks.modelDownload.downloadFailed.title"),
-              description: msg,
-            });
-          } else {
-            success = result?.success ?? false;
-          }
-        } else if (modelType === "parakeet") {
-          const result = await window.electronAPI?.downloadParakeetModel(modelId);
-          if (!result?.success && !result?.error?.includes("interrupted by user")) {
-            const msg = getDownloadErrorMessage(
-              t,
-              result?.error || t("hooks.modelDownload.errors.unknown"),
-              result?.code
-            );
-            const title =
-              result?.code === "EXTRACTION_FAILED"
-                ? t("hooks.modelDownload.installationFailed.title")
-                : t("hooks.modelDownload.downloadFailed.title");
-            setDownloadError(msg);
-            showAlertDialog({ title, description: msg });
-          } else {
-            success = result?.success ?? false;
-          }
-        } else {
-          const result = (await window.electronAPI?.modelDownload?.(modelId)) as unknown as
-            | { success: boolean; error?: string; code?: string }
-            | undefined;
-          if (result && !result.success && result.error) {
-            const msg = getDownloadErrorMessage(t, result.error, result.code);
-            setDownloadError(msg);
-            showAlertDialog({
-              title: t("hooks.modelDownload.downloadFailed.title"),
-              description: msg,
-            });
-          } else {
-            success = result?.success ?? false;
-          }
-        }
+        // faster-whisper auto-downloads models via the Python sidecar
+        // Just mark as success since the model will be downloaded on first use
+        const success = true;
 
         if (success) {
           onSelectAfterDownload?.(modelId);
@@ -275,74 +218,22 @@ export function useModelDownload({
   );
 
   const deleteModel = useCallback(
-    async (modelId: string, onComplete?: () => void) => {
-      try {
-        if (modelType === "whisper") {
-          const result = await window.electronAPI?.deleteWhisperModel(modelId);
-          if (result?.success) {
-            toast({
-              title: t("hooks.modelDownload.modelDeleted.title"),
-              description: t("hooks.modelDownload.modelDeleted.descriptionWithSpace", {
-                sizeMb: result.freed_mb,
-              }),
-            });
-          }
-        } else if (modelType === "parakeet") {
-          const result = await window.electronAPI?.deleteParakeetModel(modelId);
-          if (result?.success) {
-            toast({
-              title: t("hooks.modelDownload.modelDeleted.title"),
-              description: t("hooks.modelDownload.modelDeleted.descriptionWithSpace", {
-                sizeMb: result.freed_mb,
-              }),
-            });
-          }
-        } else {
-          await window.electronAPI?.modelDelete?.(modelId);
-          toast({
-            title: t("hooks.modelDownload.modelDeleted.title"),
-            description: t("hooks.modelDownload.modelDeleted.description"),
-          });
-        }
-        onComplete?.();
-      } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        showAlertDialog({
-          title: t("hooks.modelDownload.deleteFailed.title"),
-          description: t("hooks.modelDownload.deleteFailed.description", { error: errorMessage }),
-        });
-      }
+    async (_modelId: string, onComplete?: () => void) => {
+      // faster-whisper models are managed by the Python sidecar
+      // and cached in its model directory. No manual deletion needed.
+      onComplete?.();
     },
-    [modelType, toast, showAlertDialog, t]
+    []
   );
 
   const cancelDownload = useCallback(async () => {
-    if (!downloadingModel || isCancelling) return;
-
-    setIsCancelling(true);
-    isCancellingRef.current = true;
-    try {
-      if (modelType === "whisper") {
-        await window.electronAPI?.cancelWhisperDownload();
-      } else if (modelType === "parakeet") {
-        await window.electronAPI?.cancelParakeetDownload();
-      } else {
-        await window.electronAPI?.modelCancelDownload?.(downloadingModel);
-      }
-      toast({
-        title: t("hooks.modelDownload.downloadCancelled.title"),
-        description: t("hooks.modelDownload.downloadCancelled.description"),
-      });
-    } catch (error) {
-      console.error("Failed to cancel download:", error);
-    } finally {
-      setIsCancelling(false);
-      isCancellingRef.current = false;
-      setDownloadingModel(null);
-      setDownloadProgress({ percentage: 0, downloadedBytes: 0, totalBytes: 0 });
-      onDownloadCompleteRef.current?.();
-    }
-  }, [downloadingModel, isCancelling, modelType, toast, t]);
+    // faster-whisper auto-downloads are managed by the Python sidecar
+    // No manual cancellation needed
+    setIsCancelling(false);
+    isCancellingRef.current = false;
+    setDownloadingModel(null);
+    setDownloadProgress({ percentage: 0, downloadedBytes: 0, totalBytes: 0 });
+  }, []);
 
   const isDownloading = downloadingModel !== null;
   const isDownloadingModel = useCallback(

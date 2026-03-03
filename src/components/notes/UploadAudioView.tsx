@@ -63,12 +63,8 @@ export default function UploadAudioView({ onNoteCreated, onOpenSettings }: Uploa
   const [providerReady, setProviderReady] = useState<boolean | null>(null);
 
   const {
-    whisperModel,
-    setWhisperModel,
-    localTranscriptionProvider,
-    setLocalTranscriptionProvider,
-    parakeetModel,
-    setParakeetModel,
+    fasterWhisperModel,
+    setFasterWhisperModel,
   } = useSettings();
 
   useEffect(() => {
@@ -85,34 +81,25 @@ export default function UploadAudioView({ onNoteCreated, onOpenSettings }: Uploa
     });
   }, []);
 
-  // Check if a local model is downloaded and ready
+  // Check if faster-whisper sidecar is available
   useEffect(() => {
     let cancelled = false;
     const checkProviderReady = async () => {
-      if (localTranscriptionProvider === "nvidia") {
-        const r = await window.electronAPI.listParakeetModels?.();
-        if (!cancelled)
-          setProviderReady(
-            !!(r?.success && r.models.some((m: { downloaded?: boolean }) => m.downloaded))
-          );
-      } else {
-        const r = await window.electronAPI.listWhisperModels?.();
-        if (!cancelled)
-          setProviderReady(
-            !!(r?.success && r.models.some((m: { downloaded?: boolean }) => m.downloaded))
-          );
+      try {
+        const status = await window.electronAPI?.fasterWhisperStatus?.();
+        if (!cancelled) setProviderReady(status?.available ?? false);
+      } catch {
+        if (!cancelled) setProviderReady(false);
       }
     };
     checkProviderReady();
     return () => {
       cancelled = true;
     };
-  }, [localTranscriptionProvider]);
+  }, []);
 
   const getActiveModelLabel = (): string => {
-    if (localTranscriptionProvider === "nvidia")
-      return `Parakeet · ${parakeetModel || "default"}`;
-    return `Whisper · ${whisperModel || "base"}`;
+    return `Whisper · ${fasterWhisperModel || "base"}`;
   };
 
   const handleBrowse = async () => {
@@ -170,8 +157,7 @@ export default function UploadAudioView({ onNoteCreated, onOpenSettings }: Uploa
 
     try {
       const res = await window.electronAPI.transcribeAudioFile(file.path, {
-        provider: localTranscriptionProvider as "whisper" | "nvidia",
-        model: localTranscriptionProvider === "nvidia" ? parakeetModel : whisperModel,
+        model: fasterWhisperModel,
       });
 
       if (progressRef.current) clearInterval(progressRef.current);
@@ -244,16 +230,8 @@ export default function UploadAudioView({ onNoteCreated, onOpenSettings }: Uploa
   const modelPicker = (
     <Suspense fallback={null}>
       <TranscriptionModelPicker
-        selectedLocalModel={localTranscriptionProvider === "nvidia" ? parakeetModel : whisperModel}
-        onLocalModelSelect={(modelId) => {
-          if (localTranscriptionProvider === "nvidia") {
-            setParakeetModel(modelId);
-          } else {
-            setWhisperModel(modelId);
-          }
-        }}
-        selectedLocalProvider={localTranscriptionProvider}
-        onLocalProviderSelect={(id) => setLocalTranscriptionProvider(id as "whisper" | "nvidia")}
+        selectedLocalModel={fasterWhisperModel}
+        onLocalModelSelect={setFasterWhisperModel}
         variant="settings"
       />
     </Suspense>

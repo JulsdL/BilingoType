@@ -2,14 +2,9 @@ import React, { createContext, useCallback, useContext, useEffect, useRef } from
 import { useSettingsStore, initializeSettings } from "../stores/settingsStore";
 import logger from "../utils/logger";
 import { useLocalStorage } from "./useLocalStorage";
-import type { LocalTranscriptionProvider } from "../types/electron";
 
 export interface TranscriptionSettings {
   uiLanguage: string;
-  useLocalWhisper: boolean;
-  whisperModel: string;
-  localTranscriptionProvider: LocalTranscriptionProvider;
-  parakeetModel: string;
   fasterWhisperModel: string;
   preferredLanguage: string;
   customDictionary: string[];
@@ -84,29 +79,14 @@ function useSettingsInternal() {
   }, []);
 
   // Sync startup pre-warming preferences to main process
-  const {
-    useLocalWhisper,
-    localTranscriptionProvider,
-    whisperModel,
-    parakeetModel,
-    fasterWhisperModel,
-    sttDevice,
-  } = store;
+  const { fasterWhisperModel, sttDevice } = store;
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.electronAPI?.syncStartupPreferences) return;
 
-    const model =
-      localTranscriptionProvider === "nvidia"
-        ? parakeetModel
-        : localTranscriptionProvider === "faster-whisper"
-          ? fasterWhisperModel
-          : whisperModel;
     window.electronAPI
       .syncStartupPreferences({
-        useLocalWhisper,
-        localTranscriptionProvider,
-        model: model || undefined,
+        fasterWhisperModel: fasterWhisperModel || undefined,
         sttDevice,
       })
       .catch((err) =>
@@ -116,29 +96,14 @@ function useSettingsInternal() {
           "settings"
         )
       );
-  }, [
-    useLocalWhisper,
-    localTranscriptionProvider,
-    whisperModel,
-    parakeetModel,
-    fasterWhisperModel,
-    sttDevice,
-  ]);
+  }, [fasterWhisperModel, sttDevice]);
 
   return {
-    useLocalWhisper: store.useLocalWhisper,
-    whisperModel: store.whisperModel,
     uiLanguage: store.uiLanguage,
-    localTranscriptionProvider: store.localTranscriptionProvider,
-    parakeetModel: store.parakeetModel,
     fasterWhisperModel: store.fasterWhisperModel,
     preferredLanguage: store.preferredLanguage,
     customDictionary: store.customDictionary,
-    setUseLocalWhisper: store.setUseLocalWhisper,
-    setWhisperModel: store.setWhisperModel,
     setUiLanguage: store.setUiLanguage,
-    setLocalTranscriptionProvider: store.setLocalTranscriptionProvider,
-    setParakeetModel: store.setParakeetModel,
     setFasterWhisperModel: store.setFasterWhisperModel,
     setPreferredLanguage: store.setPreferredLanguage,
     setCustomDictionary: store.setCustomDictionary,

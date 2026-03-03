@@ -24,7 +24,6 @@ import { ConfirmDialog, AlertDialog } from "./ui/dialog";
 import { useSettings } from "../hooks/useSettings";
 import { useDialogs } from "../hooks/useDialogs";
 import { useAgentName } from "../utils/agentName";
-import { useWhisper } from "../hooks/useWhisper";
 import { usePermissions } from "../hooks/usePermissions";
 import { useClipboard } from "../hooks/useClipboard";
 import { useUpdater } from "../hooks/useUpdater";
@@ -118,9 +117,6 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
   } = useDialogs();
 
   const {
-    whisperModel,
-    localTranscriptionProvider,
-    parakeetModel,
     uiLanguage,
     preferredLanguage,
     dictationKey,
@@ -131,9 +127,6 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
     setPreferBuiltInMic,
     setSelectedMicDeviceId,
     setUiLanguage,
-    setWhisperModel,
-    setLocalTranscriptionProvider,
-    setParakeetModel,
     fasterWhisperModel,
     setFasterWhisperModel,
     setDictationKey,
@@ -189,7 +182,6 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
   const isUpdateAvailable =
     !updateStatus.isDevelopment && (updateStatus.updateAvailable || updateStatus.updateDownloaded);
 
-  const whisperHook = useWhisper();
   const permissionsHook = usePermissions(showAlertDialog);
   useClipboard(showAlertDialog);
   const { agentName, setAgentName } = useAgentName();
@@ -320,16 +312,13 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
       const version = await getAppVersion();
       if (version && mounted) setCurrentVersion(version);
 
-      if (mounted) {
-        whisperHook.checkWhisperInstallation();
-      }
     }, 100);
 
     return () => {
       mounted = false;
       clearTimeout(timer);
     };
-  }, [whisperHook.checkWhisperInstallation, getAppVersion]);
+  }, [getAppVersion]);
 
   useEffect(() => {
     const checkHotkeyMode = async () => {
@@ -426,9 +415,7 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
         setIsRemovingModels(true);
         try {
           const results = await Promise.allSettled([
-            window.electronAPI?.deleteAllWhisperModels?.(),
-            window.electronAPI?.deleteAllParakeetModels?.(),
-            window.electronAPI?.modelDeleteAll?.(),
+            window.electronAPI?.cleanupApp?.(),
           ]);
 
           const anyFailed = results.some(
@@ -692,8 +679,7 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
             />
 
             {/* Hardware info card */}
-            {localTranscriptionProvider === "faster-whisper" && (
-              <SettingsPanel>
+            <SettingsPanel>
                 <SettingsPanelRow>
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2 min-w-0">
@@ -784,27 +770,10 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
                   </SettingsRow>
                 </SettingsPanelRow>
               </SettingsPanel>
-            )}
 
             <TranscriptionModelPicker
-              selectedLocalModel={
-                localTranscriptionProvider === "nvidia"
-                  ? parakeetModel
-                  : localTranscriptionProvider === "faster-whisper"
-                    ? fasterWhisperModel
-                    : whisperModel
-              }
-              onLocalModelSelect={(modelId) => {
-                if (localTranscriptionProvider === "nvidia") {
-                  setParakeetModel(modelId);
-                } else if (localTranscriptionProvider === "faster-whisper") {
-                  setFasterWhisperModel(modelId);
-                } else {
-                  setWhisperModel(modelId);
-                }
-              }}
-              selectedLocalProvider={localTranscriptionProvider}
-              onLocalProviderSelect={setLocalTranscriptionProvider}
+              selectedLocalModel={fasterWhisperModel}
+              onLocalModelSelect={setFasterWhisperModel}
               variant="settings"
             />
           </div>
@@ -1411,7 +1380,7 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => window.electronAPI?.openWhisperModelsFolder?.()}
+                          onClick={() => window.electronAPI?.openLogsFolder?.()}
                         >
                           <FolderOpen className="mr-1.5 h-3.5 w-3.5" />
                           {t("settingsPage.developer.open")}

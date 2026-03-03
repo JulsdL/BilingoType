@@ -139,53 +139,19 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => ipcRenderer.removeListener("transcriptions-cleared", listener);
   },
 
-  // Environment variables
-  getOpenAIKey: () => ipcRenderer.invoke("get-openai-key"),
-  saveOpenAIKey: (key) => ipcRenderer.invoke("save-openai-key", key),
-
   // Clipboard functions
   checkAccessibilityPermission: () => ipcRenderer.invoke("check-accessibility-permission"),
   readClipboard: () => ipcRenderer.invoke("read-clipboard"),
   writeClipboard: (text) => ipcRenderer.invoke("write-clipboard", text),
   checkPasteTools: () => ipcRenderer.invoke("check-paste-tools"),
 
-  // Local Whisper functions (whisper.cpp)
-  transcribeLocalWhisper: (audioBlob, options) =>
-    ipcRenderer.invoke("transcribe-local-whisper", audioBlob, options),
-  checkWhisperInstallation: () => ipcRenderer.invoke("check-whisper-installation"),
-  downloadWhisperModel: (modelName) => ipcRenderer.invoke("download-whisper-model", modelName),
-  onWhisperDownloadProgress: registerListener("whisper-download-progress"),
-  checkModelStatus: (modelName) => ipcRenderer.invoke("check-model-status", modelName),
-  listWhisperModels: () => ipcRenderer.invoke("list-whisper-models"),
-  deleteWhisperModel: (modelName) => ipcRenderer.invoke("delete-whisper-model", modelName),
-  deleteAllWhisperModels: () => ipcRenderer.invoke("delete-all-whisper-models"),
-  cancelWhisperDownload: () => ipcRenderer.invoke("cancel-whisper-download"),
-  checkFFmpegAvailability: () => ipcRenderer.invoke("check-ffmpeg-availability"),
-  getAudioDiagnostics: () => ipcRenderer.invoke("get-audio-diagnostics"),
-
-  // Whisper server functions
-  whisperServerStart: (modelName) => ipcRenderer.invoke("whisper-server-start", modelName),
-  whisperServerStop: () => ipcRenderer.invoke("whisper-server-stop"),
-  whisperServerStatus: () => ipcRenderer.invoke("whisper-server-status"),
-
   // Hardware info + benchmark
   getHardwareInfo: () => ipcRenderer.invoke("get-hardware-info"),
   runSttBenchmark: () => ipcRenderer.invoke("run-stt-benchmark"),
 
-  // CUDA GPU acceleration
+  // GPU detection
   detectGpu: () => ipcRenderer.invoke("detect-gpu"),
-  getCudaWhisperStatus: () => ipcRenderer.invoke("get-cuda-whisper-status"),
-  downloadCudaWhisperBinary: () => ipcRenderer.invoke("download-cuda-whisper-binary"),
-  cancelCudaWhisperDownload: () => ipcRenderer.invoke("cancel-cuda-whisper-download"),
-  deleteCudaWhisperBinary: () => ipcRenderer.invoke("delete-cuda-whisper-binary"),
-  onCudaDownloadProgress: registerListener(
-    "cuda-download-progress",
-    (callback) => (_event, data) => callback(data)
-  ),
-  onCudaFallbackNotification: registerListener(
-    "cuda-fallback-notification",
-    (callback) => () => callback()
-  ),
+  getCudaStatus: () => ipcRenderer.invoke("get-cuda-status"),
 
   // faster-whisper sidecar
   fasterWhisperStreamingStart: (options) =>
@@ -252,8 +218,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   openMicrophoneSettings: () => ipcRenderer.invoke("open-microphone-settings"),
   openSoundInputSettings: () => ipcRenderer.invoke("open-sound-input-settings"),
   openAccessibilitySettings: () => ipcRenderer.invoke("open-accessibility-settings"),
-  openWhisperModelsFolder: () => ipcRenderer.invoke("open-whisper-models-folder"),
-
   // UI language
   getUiLanguage: () => ipcRenderer.invoke("get-ui-language"),
   saveUiLanguage: (language) => ipcRenderer.invoke("save-ui-language", language),

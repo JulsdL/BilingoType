@@ -1,6 +1,6 @@
 import logger from "../utils/logger";
 import { isBuiltInMicrophone } from "../utils/audioDeviceUtils";
-import { getBaseLanguageCode, validateLanguageForModel } from "../utils/languageSupport";
+import { getBaseLanguageCode } from "../utils/languageSupport";
 import { getSettings } from "../stores/settingsStore";
 
 class AudioManager {
@@ -310,24 +310,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
     try {
       const s = getSettings();
-      const localProvider = s.localTranscriptionProvider;
-      const whisperModel = s.whisperModel;
-      const parakeetModel = s.parakeetModel || "parakeet-tdt-0.6b-v3";
-
-      let result;
-      let activeModel;
-
-      if (localProvider === "faster-whisper") {
-        const fwModel = s.fasterWhisperModel || whisperModel || "base";
-        activeModel = fwModel;
-        result = await this.processWithFasterWhisper(audioBlob, fwModel, metadata);
-      } else if (localProvider === "nvidia") {
-        activeModel = parakeetModel;
-        result = await this.processWithLocalParakeet(audioBlob, parakeetModel, metadata);
-      } else {
-        activeModel = whisperModel;
-        result = await this.processWithLocalWhisper(audioBlob, whisperModel, metadata);
-      }
+      const activeModel = s.fasterWhisperModel || "base";
+      const result = await this.processWithFasterWhisper(audioBlob, activeModel, metadata);
 
       if (!this.isProcessing) {
         return;
@@ -338,7 +322,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       const roundTripDurationMs = Math.round(performance.now() - pipelineStart);
 
       const timingData = {
-        mode: `local-${localProvider}`,
+        mode: "local-faster-whisper",
         model: activeModel,
         audioDurationMs: metadata.durationSeconds
           ? Math.round(metadata.durationSeconds * 1000)
@@ -377,66 +361,6 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         this.isProcessing = false;
         this.onStateChange?.({ isRecording: false, isProcessing: false });
       }
-    }
-  }
-
-  async processWithLocalWhisper(audioBlob, model = "base", _metadata = {}) {
-    const timings = {};
-
-    try {
-      // Send original audio to main process -- FFmpeg in main process handles conversion
-      // (renderer-side AudioContext conversion was unreliable with WebM/Opus format)
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      const language = getBaseLanguageCode(getSettings().preferredLanguage);
-      const options = { model };
-      if (language) {
-        options.language = language;
-      }
-
-      // Add custom dictionary as initial prompt to help Whisper recognize specific words
-      const dictionaryPrompt = this.getCustomDictionaryPrompt();
-      if (dictionaryPrompt) {
-        options.initialPrompt = dictionaryPrompt;
-      }
-
-      logger.debug(
-        "Local transcription starting",
-        {
-          audioFormat: audioBlob.type,
-          audioSizeBytes: audioBlob.size,
-        },
-        "performance"
-      );
-
-      const transcriptionStart = performance.now();
-      // TODO: Replace with faster-whisper call when integrated
-      const result = await window.electronAPI.transcribeLocalWhisper(arrayBuffer, options);
-      timings.transcriptionProcessingDurationMs = Math.round(
-        performance.now() - transcriptionStart
-      );
-
-      logger.debug(
-        "Local transcription complete",
-        {
-          transcriptionProcessingDurationMs: timings.transcriptionProcessingDurationMs,
-          success: result.success,
-        },
-        "performance"
-      );
-
-      if (result.success && result.text) {
-        return { success: true, text: result.text, source: "local", timings };
-      } else if (result.success === false && result.message === "No audio detected") {
-        throw new Error("No audio detected");
-      } else {
-        throw new Error(result.message || result.error || "Local Whisper transcription failed");
-      }
-    } catch (error) {
-      if (error.message === "No audio detected") {
-        throw error;
-      }
-
-      throw new Error(`Local Whisper failed: ${error.message}`);
     }
   }
 
@@ -489,58 +413,6 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         throw error;
       }
       throw new Error(`faster-whisper failed: ${error.message}`);
-    }
-  }
-
-  async processWithLocalParakeet(audioBlob, model = "parakeet-tdt-0.6b-v3", _metadata = {}) {
-    const timings = {};
-
-    try {
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      const language = validateLanguageForModel(getSettings().preferredLanguage, model);
-      const options = { model };
-      if (language) {
-        options.language = language;
-      }
-
-      logger.debug(
-        "Parakeet transcription starting",
-        {
-          audioFormat: audioBlob.type,
-          audioSizeBytes: audioBlob.size,
-          model,
-        },
-        "performance"
-      );
-
-      const transcriptionStart = performance.now();
-      const result = await window.electronAPI.transcribeLocalParakeet(arrayBuffer, options);
-      timings.transcriptionProcessingDurationMs = Math.round(
-        performance.now() - transcriptionStart
-      );
-
-      logger.debug(
-        "Parakeet transcription complete",
-        {
-          transcriptionProcessingDurationMs: timings.transcriptionProcessingDurationMs,
-          success: result.success,
-        },
-        "performance"
-      );
-
-      if (result.success && result.text) {
-        return { success: true, text: result.text, source: "local-parakeet", timings };
-      } else if (result.success === false && result.message === "No audio detected") {
-        throw new Error("No audio detected");
-      } else {
-        throw new Error(result.message || result.error || "Parakeet transcription failed");
-      }
-    } catch (error) {
-      if (error.message === "No audio detected") {
-        throw error;
-      }
-
-      throw new Error(`Parakeet failed: ${error.message}`);
     }
   }
 
@@ -653,10 +525,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
   warmupStreamingConnection() {
     const settings = getSettings();
-    const model =
-      settings.localTranscriptionProvider === "faster-whisper"
-        ? settings.fasterWhisperModel || "base"
-        : settings.whisperModel || "base";
+    const model = settings.fasterWhisperModel || "base";
     const language = getBaseLanguageCode(settings.preferredLanguage) || null;
     const dictionaryPrompt = this.getCustomDictionaryPrompt();
 
@@ -709,10 +578,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
       // 6. Start session with sidecar
       const settings = getSettings();
-      const model =
-        settings.localTranscriptionProvider === "faster-whisper"
-          ? settings.fasterWhisperModel || "base"
-          : settings.whisperModel || "base";
+      const model = settings.fasterWhisperModel || "base";
       const language = getBaseLanguageCode(settings.preferredLanguage) || null;
       const dictionaryPrompt = this.getCustomDictionaryPrompt();
 

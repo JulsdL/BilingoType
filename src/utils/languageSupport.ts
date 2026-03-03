@@ -1,6 +1,6 @@
 import registry from "../config/languageRegistry.json";
 
-function buildLanguageSet(key: "whisper" | "parakeet" | "assemblyai"): Set<string> {
+function buildLanguageSet(key: "whisper"): Set<string> {
   const set = new Set<string>();
   for (const lang of registry.languages) {
     if (lang[key]) {
@@ -13,12 +13,6 @@ function buildLanguageSet(key: "whisper" | "parakeet" | "assemblyai"): Set<strin
 }
 
 const WHISPER_LANGUAGES = buildLanguageSet("whisper");
-const PARAKEET_LANGUAGES = buildLanguageSet("parakeet");
-const ASSEMBLYAI_UNIVERSAL3_PRO_LANGUAGES = buildLanguageSet("assemblyai");
-
-const MODEL_LANGUAGE_MAP: Record<string, Set<string>> = {
-  "parakeet-tdt-0.6b-v3": PARAKEET_LANGUAGES,
-};
 
 const LANGUAGE_INSTRUCTIONS: Record<string, string> = Object.fromEntries(
   registry.languages
@@ -41,10 +35,10 @@ export function validateLanguageForModel(
   const baseCode = getBaseLanguageCode(language);
   if (!baseCode) return undefined;
 
-  const supportedSet = MODEL_LANGUAGE_MAP[modelId];
-  if (!supportedSet) return baseCode;
+  // All faster-whisper models support the same languages as Whisper
+  if (!WHISPER_LANGUAGES.has(baseCode)) return undefined;
 
-  return supportedSet.has(baseCode) ? baseCode : undefined;
+  return baseCode;
 }
 
 export function getLanguageInstruction(language: string | undefined): string {
@@ -57,4 +51,4 @@ function buildGenericInstruction(langCode: string): string {
   return template.replace("{{code}}", langCode);
 }
 
-export { WHISPER_LANGUAGES, PARAKEET_LANGUAGES, ASSEMBLYAI_UNIVERSAL3_PRO_LANGUAGES };
+export { WHISPER_LANGUAGES };

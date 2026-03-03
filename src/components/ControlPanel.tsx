@@ -1,13 +1,12 @@
 import React, { Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "./ui/button";
-import { Download, RefreshCw, Loader2, Zap } from "lucide-react";
+import { Download, RefreshCw, Loader2 } from "lucide-react";
 import { ConfirmDialog, AlertDialog } from "./ui/dialog";
 import { useDialogs } from "../hooks/useDialogs";
 import { useHotkey } from "../hooks/useHotkey";
 import { useToast } from "./ui/Toast";
 import { useUpdater } from "../hooks/useUpdater";
-import { useSettings } from "../hooks/useSettings";
 import {
   useTranscriptions,
   initializeTranscriptions,
@@ -33,13 +32,8 @@ export default function ControlPanel() {
   const [showSettings, setShowSettings] = useState(false);
   const [settingsSection, setSettingsSection] = useState<string | undefined>();
   const [activeView, setActiveView] = useState<ControlPanelView>("home");
-  const [gpuAccelAvailable, setGpuAccelAvailable] = useState(false);
-  const [gpuBannerDismissed, setGpuBannerDismissed] = useState(
-    () => localStorage.getItem("gpuBannerDismissedUnified") === "true"
-  );
   const { hotkey } = useHotkey();
   const { toast } = useToast();
-  const { useLocalWhisper, localTranscriptionProvider } = useSettings();
 
   const {
     status: updateStatus,
@@ -83,24 +77,6 @@ export default function ControlPanel() {
       });
     }
   }, [updateError, toast, t]);
-
-  // Detect CUDA GPU acceleration availability for whisper
-  useEffect(() => {
-    if (platform === "darwin" || gpuBannerDismissed) return;
-    const detect = async () => {
-      if (useLocalWhisper && localTranscriptionProvider === "whisper") {
-        try {
-          const status = await window.electronAPI?.getCudaWhisperStatus?.();
-          if (status?.gpuInfo.hasNvidiaGpu && !status.downloaded) {
-            setGpuAccelAvailable(true);
-            return;
-          }
-        } catch {}
-      }
-      setGpuAccelAvailable(false);
-    };
-    detect();
-  }, [useLocalWhisper, localTranscriptionProvider, gpuBannerDismissed]);
 
   const loadTranscriptions = async () => {
     try {
@@ -302,47 +278,6 @@ export default function ControlPanel() {
             )}
           </div>
           <div className="flex-1 overflow-y-auto pt-1">
-            {gpuAccelAvailable && activeView === "home" && !gpuBannerDismissed && (
-              <div className="max-w-3xl mx-auto w-full mb-3">
-                <div className="rounded-lg border border-primary/20 dark:border-primary/15 bg-primary/5 p-3">
-                  <div className="flex items-start gap-3">
-                    <div className="shrink-0 w-8 h-8 rounded-md bg-primary/10 dark:bg-primary/15 flex items-center justify-center">
-                      <Zap size={16} className="text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-foreground mb-0.5">
-                        {t("controlPanel.gpu.bannerTitle")}
-                      </p>
-                      <p className="text-xs text-muted-foreground mb-2">
-                        {t("controlPanel.gpu.bannerDescription")}
-                      </p>
-                      <div className="flex items-center gap-3">
-                        <Button
-                          variant="default"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => {
-                            setSettingsSection("transcription");
-                            setShowSettings(true);
-                          }}
-                        >
-                          {t("controlPanel.gpu.enableButton")}
-                        </Button>
-                        <button
-                          onClick={() => {
-                            setGpuBannerDismissed(true);
-                            localStorage.setItem("gpuBannerDismissedUnified", "true");
-                          }}
-                          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          {t("controlPanel.gpu.dismissButton")}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
             {activeView === "home" && (
               <HistoryView
                 history={history}

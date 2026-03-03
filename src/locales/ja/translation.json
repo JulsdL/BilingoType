@@ -234,13 +234,7 @@
       "description": "話しながら文法、句読点、書式を自動的に修正します。",
       "enable": "AI 補正を有効にする"
     },
-    "loading": "読み込み中...",
-    "gpu": {
-      "bannerTitle": "GPU アクセラレーションが利用可能",
-      "bannerDescription": "GPU アクセラレーションを有効にしてパフォーマンスを向上させましょう。",
-      "enableButton": "GPU を有効化",
-      "dismissButton": "後で"
-    }
+    "loading": "読み込み中..."
   },
   "reasoning": {
     "mode": {
@@ -278,10 +272,6 @@
     "deleteModel": {
       "title": "モデルを削除",
       "description": "このモデルを削除してもよろしいですか？再度使用するにはダウンロードし直す必要があります。"
-    },
-    "parakeet": {
-      "multilingual": "25 言語対応",
-      "english": "英語"
     },
     "fasterWhisper": {
       "autoDownload": "モデルは初回使用時に自動的にダウンロードされます",
@@ -1215,9 +1205,6 @@
   },
   "models": {
     "descriptions": {
-      "parakeet": {
-        "parakeet_tdt_0_6b_v3": "高速多言語 ASR、自動言語検出対応（25 言語）"
-      },
       "whisper": {
         "tiny": "最速、品質は低め",
         "base": "速度と品質のバランス",
@@ -1562,19 +1549,6 @@
     "add": "追加",
     "editButton": "編集",
     "addButton": "追加"
-  },
-  "gpu": {
-    "transcriptionBanner": "GPU で文字起こしを高速化",
-    "reasoningBanner": "GPU で AI 処理を高速化",
-    "enableButton": "GPU を有効化",
-    "active": "GPU アクセラレーション有効",
-    "ready": "GPUアクセラレーション準備完了",
-    "activating": "GPU を有効化中...",
-    "activationFailed": "GPU を有効化できませんでした",
-    "retry": "再試行",
-    "remove": "削除",
-    "dismiss": "後で",
-    "cancel": "キャンセル"
   },
   "app": {
     "toasts": {

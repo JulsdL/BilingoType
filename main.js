@@ -82,11 +82,9 @@ const EnvironmentManager = require("./src/helpers/environment");
 const WindowManager = require("./src/helpers/windowManager");
 const DatabaseManager = require("./src/helpers/database");
 const ClipboardManager = require("./src/helpers/clipboard");
-const WhisperManager = require("./src/helpers/whisper");
 const TrayManager = require("./src/helpers/tray");
 const IPCHandlers = require("./src/helpers/ipcHandlers");
 const WindowsKeyManager = require("./src/helpers/windowsKeyManager");
-const WhisperCudaManager = require("./src/helpers/whisperCudaManager");
 const FasterWhisperManager = require("./src/helpers/fasterWhisperManager");
 const { i18nMain, changeLanguage } = require("./src/helpers/i18nMain");
 
@@ -97,10 +95,8 @@ let windowManager = null;
 let hotkeyManager = null;
 let databaseManager = null;
 let clipboardManager = null;
-let whisperManager = null;
 let trayManager = null;
 let windowsKeyManager = null;
-let whisperCudaManager = null;
 let fasterWhisperManager = null;
 let ipcHandlers = null;
 
@@ -119,10 +115,6 @@ function initializeCoreManagers() {
   hotkeyManager = windowManager.hotkeyManager;
   databaseManager = new DatabaseManager();
   clipboardManager = new ClipboardManager();
-  whisperManager = new WhisperManager();
-  if (process.platform !== "darwin") {
-    whisperCudaManager = new WhisperCudaManager();
-  }
   windowsKeyManager = new WindowsKeyManager();
   fasterWhisperManager = new FasterWhisperManager();
 
@@ -131,10 +123,8 @@ function initializeCoreManagers() {
     environmentManager,
     databaseManager,
     clipboardManager,
-    whisperManager,
     windowManager,
     windowsKeyManager,
-    whisperCudaManager,
     fasterWhisperManager,
     getTrayManager: () => trayManager,
   });
@@ -179,21 +169,8 @@ async function startApp() {
   // Phase 2: Initialize remaining managers after windows are visible
   initializeDeferredManagers();
 
-  // Non-blocking whisper server pre-warming
-  const whisperSettings = {
-    localTranscriptionProvider: process.env.LOCAL_TRANSCRIPTION_PROVIDER || "",
-    whisperModel: process.env.LOCAL_WHISPER_MODEL,
-    useCuda: process.env.WHISPER_CUDA_ENABLED === "true" && whisperCudaManager?.isDownloaded(),
-  };
-  whisperManager.initializeAtStartup(whisperSettings).catch((err) => {
-    debugLogger.debug("Whisper startup init error (non-fatal)", { error: err.message });
-  });
-
-  // Pre-warm faster-whisper sidecar if selected as provider
-  if (
-    whisperSettings.localTranscriptionProvider === "faster-whisper" &&
-    fasterWhisperManager.isAvailable()
-  ) {
+  // Pre-warm faster-whisper sidecar
+  if (fasterWhisperManager.isAvailable()) {
     const fwModel = process.env.FASTER_WHISPER_MODEL || "base";
     const fwDevice = process.env.STT_DEVICE || "auto";
     fasterWhisperManager.start(fwModel, { device: fwDevice }).catch((err) => {
@@ -400,10 +377,6 @@ if (gotSingleInstanceLock) {
     }
     if (windowsKeyManager) {
       windowsKeyManager.stop();
-    }
-    // Stop whisper server if running
-    if (whisperManager) {
-      whisperManager.stopServer().catch(() => {});
     }
     // Stop faster-whisper sidecar if running
     if (fasterWhisperManager) {

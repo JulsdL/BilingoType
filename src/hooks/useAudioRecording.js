@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import AudioManager from "../helpers/audioManager";
 import logger from "../utils/logger";
 import { playStartCue, playStopCue } from "../utils/dictationCues";
-import { getSettings } from "../stores/settingsStore";
 import { getRecordingErrorTitle } from "../utils/recordingErrors";
 
 export const useAudioRecording = (toast, options = {}) => {
@@ -112,26 +111,6 @@ export const useAudioRecording = (toast, options = {}) => {
           );
 
           audioManagerRef.current.saveTranscription(result.text);
-
-          if (result.source === "openai" && getSettings().useLocalWhisper) {
-            toast({
-              title: t("hooks.audioRecording.fallback.title"),
-              description: t("hooks.audioRecording.fallback.description"),
-              variant: "default",
-            });
-          }
-
-          // Cloud usage: limit reached after this transcription
-          if (result.source === "bilingotype" && result.limitReached) {
-            // Notify control panel to show UpgradePrompt dialog
-            window.electronAPI?.notifyLimitReached?.({
-              wordsUsed: result.wordsUsed,
-              limit:
-                result.wordsRemaining !== undefined
-                  ? result.wordsUsed + result.wordsRemaining
-                  : 2000,
-            });
-          }
 
           if (audioManagerRef.current.sttConfig?.dictation?.mode === "streaming") {
             audioManagerRef.current.warmupStreamingConnection();

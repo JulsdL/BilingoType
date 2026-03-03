@@ -234,13 +234,7 @@
       "description": "Corregge automaticamente grammatica, punteggiatura e formattazione mentre parli.",
       "enable": "Attiva miglioramento IA"
     },
-    "loading": "Caricamento...",
-    "gpu": {
-      "bannerTitle": "Accelerazione GPU disponibile",
-      "bannerDescription": "Attiva l'accelerazione GPU per prestazioni più veloci.",
-      "enableButton": "Attiva GPU",
-      "dismissButton": "Non ora"
-    }
+    "loading": "Caricamento..."
   },
   "reasoning": {
     "mode": {
@@ -278,10 +272,6 @@
     "deleteModel": {
       "title": "Elimina modello",
       "description": "Vuoi davvero eliminare questo modello? Per usarlo di nuovo dovrai riscaricarlo."
-    },
-    "parakeet": {
-      "multilingual": "25 lingue",
-      "english": "Inglese"
     },
     "fasterWhisper": {
       "autoDownload": "I modelli vengono scaricati automaticamente al primo utilizzo",
@@ -1215,9 +1205,6 @@
   },
   "models": {
     "descriptions": {
-      "parakeet": {
-        "parakeet_tdt_0_6b_v3": "ASR multilingue veloce con rilevamento automatico della lingua (25 lingue)"
-      },
       "whisper": {
         "tiny": "Il più veloce, qualità inferiore",
         "base": "Buon equilibrio",
@@ -1562,19 +1549,6 @@
     "add": "Aggiungi",
     "editButton": "Modifica",
     "addButton": "Aggiungi"
-  },
-  "gpu": {
-    "transcriptionBanner": "Velocizza la trascrizione con la GPU",
-    "reasoningBanner": "Velocizza l'elaborazione IA con la GPU",
-    "enableButton": "Attiva GPU",
-    "active": "Accelerazione GPU attiva",
-    "ready": "Accelerazione GPU pronta",
-    "activating": "Attivazione GPU...",
-    "activationFailed": "Impossibile attivare la GPU",
-    "retry": "Riprova",
-    "remove": "Rimuovi",
-    "dismiss": "Non ora",
-    "cancel": "Annulla"
   },
   "app": {
     "toasts": {

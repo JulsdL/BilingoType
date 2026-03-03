@@ -1191,6 +1191,23 @@
         "benchmarkRunning": "Wird gemessen...",
         "benchmarkRun": "Messen"
       },
+      "backend": {
+        "label": "Transkriptions-Backend",
+        "description": "Wählen Sie, wo die Spracherkennung ausgeführt wird",
+        "local": "Lokal",
+        "huggingface": "HuggingFace",
+        "hfModeLabel": "HuggingFace-Modus",
+        "hfModeDescription": "Wählen Sie zwischen Ihrem eigenen Endpoint oder der gemeinsamen API",
+        "hfApi": "Inferenz-API",
+        "hfEndpoint": "Inferenz-Endpoint",
+        "endpointUrlLabel": "Endpoint-URL",
+        "endpointUrlDescription": "Die URL Ihres dedizierten HuggingFace Inferenz-Endpoints",
+        "modelIdLabel": "Modell-ID",
+        "modelIdDescription": "HuggingFace-Modell für die Transkription",
+        "apiTokenLabel": "API-Token",
+        "apiTokenDescription": "Ihr HuggingFace-API-Token (beginnt mit hf_)",
+        "privacyNote": "Bei Verwendung von HuggingFace wird Audio zur Verarbeitung an externe Server gesendet. Verwenden Sie einen dedizierten Inferenz-Endpoint für maximalen Datenschutz."
+      },
       "toasts": {
         "switchedCloud": {
           "description": "Transkription verwendet jetzt den BilingoType-Cloud-Dienst.",

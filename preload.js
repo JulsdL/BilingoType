@@ -233,6 +233,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   syncStartupPreferences: (prefs) => ipcRenderer.invoke("sync-startup-preferences", prefs),
 
+  // HuggingFace settings
+  getHfSettings: () => ipcRenderer.invoke("get-hf-settings"),
+  saveHfSettings: (settings) => ipcRenderer.invoke("save-hf-settings", settings),
+
   // Hotkey events
   onHotkeyFallbackUsed: (callback) => {
     const listener = (_event, data) => callback?.(data);

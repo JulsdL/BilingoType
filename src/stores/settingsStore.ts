@@ -56,10 +56,20 @@ function migratePreferredLanguage() {
 
 migratePreferredLanguage();
 
+export type TranscriptionBackend = "local" | "huggingface";
+export type HfMode = "endpoint" | "api";
+
 export interface SettingsState
   extends TranscriptionSettings, HotkeySettings, MicrophoneSettings, ThemeSettings {
   audioCuesEnabled: boolean;
   floatingIconAutoHide: boolean;
+
+  // HuggingFace inference settings
+  transcriptionBackend: TranscriptionBackend;
+  hfMode: HfMode;
+  hfEndpointUrl: string;
+  hfModelId: string;
+  hfApiToken: string;
 
   setFasterWhisperModel: (value: string) => void;
   setPreferredLanguage: (value: string) => void;
@@ -77,6 +87,12 @@ export interface SettingsState
   setAudioCuesEnabled: (value: boolean) => void;
   setFloatingIconAutoHide: (enabled: boolean) => void;
 
+  setTranscriptionBackend: (value: TranscriptionBackend) => void;
+  setHfMode: (value: HfMode) => void;
+  setHfEndpointUrl: (value: string) => void;
+  setHfModelId: (value: string) => void;
+  setHfApiToken: (value: string) => void;
+
   updateTranscriptionSettings: (settings: Partial<TranscriptionSettings>) => void;
 }
 
@@ -92,6 +108,22 @@ function createBooleanSetter(key: string) {
     if (isBrowser) localStorage.setItem(key, String(value));
     useSettingsStore.setState({ [key]: value });
   };
+}
+
+/** Debounced sync of HF settings to the main process .env file. */
+let _hfSyncTimer: ReturnType<typeof setTimeout> | null = null;
+function _syncHfSettingsToMain() {
+  if (!isBrowser || !window.electronAPI?.saveHfSettings) return;
+  if (_hfSyncTimer) clearTimeout(_hfSyncTimer);
+  _hfSyncTimer = setTimeout(() => {
+    const s = useSettingsStore.getState();
+    window.electronAPI.saveHfSettings({
+      transcriptionBackend: s.transcriptionBackend,
+      hfEndpointUrl: s.hfEndpointUrl,
+      hfModelId: s.hfModelId,
+      hfApiToken: s.hfApiToken,
+    }).catch(() => {});
+  }, 300);
 }
 
 export const useSettingsStore = create<SettingsState>()((set, get) => ({
@@ -121,6 +153,15 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   })(),
   audioCuesEnabled: readBoolean("audioCuesEnabled", true),
   floatingIconAutoHide: readBoolean("floatingIconAutoHide", false),
+
+  // HuggingFace inference settings
+  transcriptionBackend: (readString("transcriptionBackend", "local") === "huggingface"
+    ? "huggingface"
+    : "local") as TranscriptionBackend,
+  hfMode: (readString("hfMode", "api") === "endpoint" ? "endpoint" : "api") as HfMode,
+  hfEndpointUrl: readString("hfEndpointUrl", ""),
+  hfModelId: readString("hfModelId", "openai/whisper-large-v3"),
+  hfApiToken: readString("hfApiToken", ""),
 
   setFasterWhisperModel: createStringSetter("fasterWhisperModel"),
   setPreferredLanguage: createStringSetter("preferredLanguage"),
@@ -192,6 +233,27 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (isBrowser) {
       window.electronAPI?.notifyFloatingIconAutoHideChanged?.(enabled);
     }
+  },
+
+  setTranscriptionBackend: (value: TranscriptionBackend) => {
+    createStringSetter("transcriptionBackend")(value);
+    _syncHfSettingsToMain();
+  },
+  setHfMode: (value: HfMode) => {
+    createStringSetter("hfMode")(value);
+    _syncHfSettingsToMain();
+  },
+  setHfEndpointUrl: (value: string) => {
+    createStringSetter("hfEndpointUrl")(value);
+    _syncHfSettingsToMain();
+  },
+  setHfModelId: (value: string) => {
+    createStringSetter("hfModelId")(value);
+    _syncHfSettingsToMain();
+  },
+  setHfApiToken: (value: string) => {
+    createStringSetter("hfApiToken")(value);
+    _syncHfSettingsToMain();
   },
 
   updateTranscriptionSettings: (settings: Partial<TranscriptionSettings>) => {

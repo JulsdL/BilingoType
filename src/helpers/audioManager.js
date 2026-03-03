@@ -311,7 +311,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     try {
       const s = getSettings();
       const activeModel = s.fasterWhisperModel || "base";
-      const result = await this.processWithFasterWhisper(audioBlob, activeModel, metadata);
+      const backend = s.transcriptionBackend || "local";
+      const result = await this.processWithFasterWhisper(audioBlob, activeModel, metadata, backend);
 
       if (!this.isProcessing) {
         return;
@@ -322,7 +323,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       const roundTripDurationMs = Math.round(performance.now() - pipelineStart);
 
       const timingData = {
-        mode: "local-faster-whisper",
+        mode: backend === "huggingface" ? "huggingface" : "local-faster-whisper",
         model: activeModel,
         audioDurationMs: metadata.durationSeconds
           ? Math.round(metadata.durationSeconds * 1000)
@@ -364,24 +365,39 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
   }
 
-  async processWithFasterWhisper(audioBlob, model = "base", _metadata = {}) {
+  async processWithFasterWhisper(audioBlob, model = "base", _metadata = {}, backend = "local") {
     const timings = {};
 
     try {
       const arrayBuffer = await audioBlob.arrayBuffer();
-      const language = getBaseLanguageCode(getSettings().preferredLanguage);
+      const s = getSettings();
+      const language = getBaseLanguageCode(s.preferredLanguage);
       const dictionaryPrompt = this.getCustomDictionaryPrompt();
 
       const options = { model };
       if (language) options.language = language;
       if (dictionaryPrompt) options.initialPrompt = dictionaryPrompt;
 
+      // Pass HuggingFace backend options when applicable
+      if (backend === "huggingface") {
+        options.backend = "huggingface";
+        if (s.hfMode === "endpoint" && s.hfEndpointUrl) {
+          options.hfEndpointUrl = s.hfEndpointUrl;
+        } else if (s.hfModelId) {
+          options.hfModelId = s.hfModelId;
+        }
+        options.hfApiToken = s.hfApiToken;
+      }
+
+      const source = backend === "huggingface" ? "huggingface" : "local-faster-whisper";
+
       logger.debug(
-        "faster-whisper transcription starting",
+        `${source} transcription starting`,
         {
           audioFormat: audioBlob.type,
           audioSizeBytes: audioBlob.size,
           model,
+          backend,
         },
         "performance"
       );
@@ -393,7 +409,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       );
 
       logger.debug(
-        "faster-whisper transcription complete",
+        `${source} transcription complete`,
         {
           transcriptionProcessingDurationMs: timings.transcriptionProcessingDurationMs,
           success: result.success,
@@ -402,17 +418,18 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       );
 
       if (result.success && result.text) {
-        return { success: true, text: result.text, source: "local-faster-whisper", timings };
+        return { success: true, text: result.text, source, timings };
       } else if (result.message === "No audio detected") {
         throw new Error("No audio detected");
       } else {
-        throw new Error(result.message || result.error || "faster-whisper transcription failed");
+        throw new Error(result.message || result.error || `${source} transcription failed`);
       }
     } catch (error) {
       if (error.message === "No audio detected") {
         throw error;
       }
-      throw new Error(`faster-whisper failed: ${error.message}`);
+      const source = backend === "huggingface" ? "huggingface" : "faster-whisper";
+      throw new Error(`${source} failed: ${error.message}`);
     }
   }
 
@@ -518,6 +535,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   // ---------------------------------------------------------------------------
 
   shouldUseStreaming() {
+    // HuggingFace backend doesn't support real-time streaming
+    if (getSettings().transcriptionBackend === "huggingface") return false;
+
     const mode =
       this.context === "notes" ? this.sttConfig?.notes?.mode : this.sttConfig?.dictation?.mode;
     return mode === "streaming";

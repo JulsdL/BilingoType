@@ -229,6 +229,20 @@ declare global {
         sttDevice?: string;
       }) => Promise<void>;
 
+      // HuggingFace settings
+      getHfSettings?: () => Promise<{
+        transcriptionBackend: string;
+        hfEndpointUrl: string;
+        hfModelId: string;
+        hfApiToken: string;
+      }>;
+      saveHfSettings?: (settings: {
+        transcriptionBackend?: string;
+        hfEndpointUrl?: string;
+        hfModelId?: string;
+        hfApiToken?: string;
+      }) => Promise<{ success: boolean }>;
+
       // Clipboard operations
       checkAccessibilityPermission: () => Promise<boolean>;
       readClipboard: () => Promise<string>;

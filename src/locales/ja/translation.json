@@ -1191,6 +1191,23 @@
         "benchmarkRunning": "測定中...",
         "benchmarkRun": "測定"
       },
+      "backend": {
+        "label": "文字起こしバックエンド",
+        "description": "音声認識の実行場所を選択",
+        "local": "ローカル",
+        "huggingface": "HuggingFace",
+        "hfModeLabel": "HuggingFaceモード",
+        "hfModeDescription": "専用エンドポイントまたは共有APIから選択",
+        "hfApi": "推論API",
+        "hfEndpoint": "推論エンドポイント",
+        "endpointUrlLabel": "エンドポイントURL",
+        "endpointUrlDescription": "専用のHuggingFace推論エンドポイントURL",
+        "modelIdLabel": "モデルID",
+        "modelIdDescription": "文字起こしに使用するHuggingFaceモデル",
+        "apiTokenLabel": "APIトークン",
+        "apiTokenDescription": "HuggingFace APIトークン（hf_で始まります）",
+        "privacyNote": "HuggingFace使用時、音声は外部サーバーに送信されて処理されます。最大限のプライバシーには専用推論エンドポイントをご利用ください。"
+      },
       "toasts": {
         "switchedCloud": {
           "description": "文字起こしに BilingoType のクラウドサービスを使用します。",

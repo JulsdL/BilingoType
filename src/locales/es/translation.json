@@ -1191,6 +1191,23 @@
         "benchmarkRunning": "Midiendo...",
         "benchmarkRun": "Medir"
       },
+      "backend": {
+        "label": "Motor de transcripción",
+        "description": "Elija dónde se ejecuta el reconocimiento de voz",
+        "local": "Local",
+        "huggingface": "HuggingFace",
+        "hfModeLabel": "Modo HuggingFace",
+        "hfModeDescription": "Elija entre su propio endpoint o la API compartida",
+        "hfApi": "API de inferencia",
+        "hfEndpoint": "Endpoint de inferencia",
+        "endpointUrlLabel": "URL del endpoint",
+        "endpointUrlDescription": "La URL de su endpoint de inferencia dedicado de HuggingFace",
+        "modelIdLabel": "ID del modelo",
+        "modelIdDescription": "Modelo de HuggingFace para la transcripción",
+        "apiTokenLabel": "Token de API",
+        "apiTokenDescription": "Su token de API de HuggingFace (comienza con hf_)",
+        "privacyNote": "Al usar HuggingFace, el audio se envía a servidores externos para su procesamiento. Use un endpoint de inferencia dedicado para máxima privacidad."
+      },
       "toasts": {
         "switchedCloud": {
           "description": "La transcripción usará el servicio en la nube de BilingoType.",

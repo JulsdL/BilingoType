@@ -1191,6 +1191,23 @@
         "benchmarkRunning": "测量中...",
         "benchmarkRun": "测量"
       },
+      "backend": {
+        "label": "转录引擎",
+        "description": "选择语音识别的运行位置",
+        "local": "本地",
+        "huggingface": "HuggingFace",
+        "hfModeLabel": "HuggingFace 模式",
+        "hfModeDescription": "选择使用您自己的端点或共享 API",
+        "hfApi": "推理 API",
+        "hfEndpoint": "推理端点",
+        "endpointUrlLabel": "端点 URL",
+        "endpointUrlDescription": "您的专用 HuggingFace 推理端点 URL",
+        "modelIdLabel": "模型 ID",
+        "modelIdDescription": "用于转录的 HuggingFace 模型",
+        "apiTokenLabel": "API 令牌",
+        "apiTokenDescription": "您的 HuggingFace API 令牌（以 hf_ 开头）",
+        "privacyNote": "使用 HuggingFace 时，音频将发送到外部服务器进行处理。使用专用推理端点以获得最大隐私保护。"
+      },
       "toasts": {
         "switchedCloud": {
           "description": "转录将使用 BilingoType 云端服务。",

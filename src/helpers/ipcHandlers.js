@@ -698,6 +698,36 @@ class IPCHandlers {
       return this.environmentManager.saveAllKeysToEnvFile();
     });
 
+    // -------------------------------------------------------------------------
+    // HuggingFace settings
+    // -------------------------------------------------------------------------
+
+    ipcMain.handle("get-hf-settings", async () => {
+      return {
+        transcriptionBackend: this.environmentManager._getKey("TRANSCRIPTION_BACKEND") || "local",
+        hfEndpointUrl: this.environmentManager._getKey("HF_ENDPOINT_URL") || "",
+        hfModelId: this.environmentManager._getKey("HF_MODEL_ID") || "",
+        hfApiToken: this.environmentManager._getKey("HF_API_TOKEN") || "",
+      };
+    });
+
+    ipcMain.handle("save-hf-settings", async (_event, settings) => {
+      if (settings.transcriptionBackend !== undefined) {
+        this.environmentManager._saveKey("TRANSCRIPTION_BACKEND", settings.transcriptionBackend);
+      }
+      if (settings.hfEndpointUrl !== undefined) {
+        this.environmentManager._saveKey("HF_ENDPOINT_URL", settings.hfEndpointUrl);
+      }
+      if (settings.hfModelId !== undefined) {
+        this.environmentManager._saveKey("HF_MODEL_ID", settings.hfModelId);
+      }
+      if (settings.hfApiToken !== undefined) {
+        this.environmentManager._saveKey("HF_API_TOKEN", settings.hfApiToken);
+      }
+      await this.environmentManager.saveAllKeysToEnvFile();
+      return { success: true };
+    });
+
     ipcMain.handle("sync-startup-preferences", async (event, prefs) => {
       const setVars = {};
       const clearVars = [];
@@ -1047,12 +1077,22 @@ class IPCHandlers {
 
       try {
         // Start a session, send audio, and get the final result
-        await this.fasterWhisperManager.startSession({
+        const sessionOpts = {
           model: options.model || "base",
           device: options.device || process.env.STT_DEVICE || "auto",
           language: options.language,
           initialPrompt: options.initialPrompt,
-        });
+        };
+
+        // Forward HuggingFace backend options if present
+        if (options.backend === "huggingface") {
+          sessionOpts.backend = "huggingface";
+          if (options.hfEndpointUrl) sessionOpts.hfEndpointUrl = options.hfEndpointUrl;
+          if (options.hfModelId) sessionOpts.hfModelId = options.hfModelId;
+          if (options.hfApiToken) sessionOpts.hfApiToken = options.hfApiToken;
+        }
+
+        await this.fasterWhisperManager.startSession(sessionOpts);
 
         // Convert audio buffer to base64 PCM
         const pcmBase64 = Buffer.from(audioBuffer).toString("base64");

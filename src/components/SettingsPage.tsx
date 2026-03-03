@@ -141,6 +141,16 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
     setCustomDictionary,
     sttDevice,
     setSttDevice,
+    transcriptionBackend,
+    setTranscriptionBackend,
+    hfMode,
+    setHfMode,
+    hfEndpointUrl,
+    setHfEndpointUrl,
+    hfModelId,
+    setHfModelId,
+    hfApiToken,
+    setHfApiToken,
   } = useSettings();
 
   const { t } = useTranslation();
@@ -678,104 +688,222 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
               description={t("settingsPage.transcription.description")}
             />
 
-            {/* Hardware info card */}
+            {/* Transcription Backend */}
             <SettingsPanel>
-                <SettingsPanelRow>
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Cpu className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-foreground truncate">
-                          {hwInfo?.gpu.hasNvidiaGpu
-                            ? hwInfo.gpu.gpuName
-                            : t("settingsPage.transcription.hardware.noGpu")}
-                        </p>
-                        {hwInfo?.gpu.hasNvidiaGpu && hwInfo.gpu.vramMb && (
-                          <p className="text-xs text-muted-foreground/80">
-                            {t("settingsPage.transcription.hardware.vram", {
-                              vram: hwInfo.gpu.vramMb,
-                            })}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    {recommendedLabel && (
-                      <Badge variant="secondary" className="shrink-0 text-[10px]">
-                        {t("settingsPage.transcription.hardware.recommendedModel", {
-                          model: recommendedLabel,
-                        })}
-                      </Badge>
-                    )}
+              <SettingsPanelRow>
+                <SettingsRow
+                  label={t("settingsPage.transcription.backend.label")}
+                  description={t("settingsPage.transcription.backend.description")}
+                >
+                  <div className="flex gap-1">
+                    {(["local", "huggingface"] as const).map((backend) => {
+                      const labels: Record<string, string> = {
+                        local: t("settingsPage.transcription.backend.local"),
+                        huggingface: t("settingsPage.transcription.backend.huggingface"),
+                      };
+                      return (
+                        <Button
+                          key={backend}
+                          variant={transcriptionBackend === backend ? "default" : "outline"}
+                          size="sm"
+                          className="text-[11px] h-7 px-2.5"
+                          onClick={() => setTranscriptionBackend(backend)}
+                        >
+                          {labels[backend]}
+                        </Button>
+                      );
+                    })}
                   </div>
-                </SettingsPanelRow>
+                </SettingsRow>
+              </SettingsPanelRow>
 
-                <SettingsPanelRow>
-                  <SettingsRow
-                    label={t("settingsPage.transcription.hardware.deviceLabel")}
-                    description={t("settingsPage.transcription.hardware.deviceDescription")}
-                  >
-                    <div className="flex gap-1">
-                      {(["auto", "cuda", "cpu"] as const).map((device) => {
-                        const labels: Record<string, string> = {
-                          auto: t("settingsPage.transcription.hardware.deviceAuto"),
-                          cuda: t("settingsPage.transcription.hardware.deviceCuda"),
-                          cpu: t("settingsPage.transcription.hardware.deviceCpu"),
-                        };
-                        const isDisabled = device === "cuda" && !hwInfo?.gpu.hasNvidiaGpu;
-                        return (
-                          <Button
-                            key={device}
-                            variant={sttDevice === device ? "default" : "outline"}
-                            size="sm"
-                            className="text-[11px] h-7 px-2.5"
-                            disabled={isDisabled}
-                            title={
-                              isDisabled
-                                ? t("settingsPage.transcription.hardware.deviceCudaUnavailable")
-                                : undefined
-                            }
-                            onClick={() => setSttDevice(device)}
-                          >
-                            {labels[device]}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  </SettingsRow>
-                </SettingsPanelRow>
-
-                <SettingsPanelRow>
-                  <SettingsRow
-                    label={t("settingsPage.transcription.hardware.benchmarkLabel")}
-                    description={
-                      hwInfo?.benchmarkMs != null
-                        ? t("settingsPage.transcription.hardware.benchmarkValue", {
-                            ms: hwInfo.benchmarkMs,
-                          })
-                        : undefined
-                    }
-                  >
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-[11px] h-7 px-2.5"
-                      disabled={benchmarkRunning}
-                      onClick={handleRunBenchmark}
+              {transcriptionBackend === "huggingface" && (
+                <>
+                  <SettingsPanelRow>
+                    <SettingsRow
+                      label={t("settingsPage.transcription.backend.hfModeLabel")}
+                      description={t("settingsPage.transcription.backend.hfModeDescription")}
                     >
-                      <Gauge className="h-3 w-3 mr-1" />
-                      {benchmarkRunning
-                        ? t("settingsPage.transcription.hardware.benchmarkRunning")
-                        : t("settingsPage.transcription.hardware.benchmarkRun")}
-                    </Button>
-                  </SettingsRow>
-                </SettingsPanelRow>
-              </SettingsPanel>
+                      <div className="flex gap-1">
+                        {(["api", "endpoint"] as const).map((mode) => {
+                          const labels: Record<string, string> = {
+                            api: t("settingsPage.transcription.backend.hfApi"),
+                            endpoint: t("settingsPage.transcription.backend.hfEndpoint"),
+                          };
+                          return (
+                            <Button
+                              key={mode}
+                              variant={hfMode === mode ? "default" : "outline"}
+                              size="sm"
+                              className="text-[11px] h-7 px-2.5"
+                              onClick={() => setHfMode(mode)}
+                            >
+                              {labels[mode]}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </SettingsRow>
+                  </SettingsPanelRow>
 
-            <TranscriptionModelPicker
-              selectedLocalModel={fasterWhisperModel}
-              onLocalModelSelect={setFasterWhisperModel}
-              variant="settings"
-            />
+                  {hfMode === "endpoint" ? (
+                    <SettingsPanelRow>
+                      <SettingsRow
+                        label={t("settingsPage.transcription.backend.endpointUrlLabel")}
+                        description={t("settingsPage.transcription.backend.endpointUrlDescription")}
+                      >
+                        <Input
+                          type="url"
+                          placeholder="https://xyz.endpoints.huggingface.cloud"
+                          value={hfEndpointUrl}
+                          onChange={(e) => setHfEndpointUrl(e.target.value)}
+                          className="h-7 text-[11px] max-w-72"
+                        />
+                      </SettingsRow>
+                    </SettingsPanelRow>
+                  ) : (
+                    <SettingsPanelRow>
+                      <SettingsRow
+                        label={t("settingsPage.transcription.backend.modelIdLabel")}
+                        description={t("settingsPage.transcription.backend.modelIdDescription")}
+                      >
+                        <Input
+                          type="text"
+                          placeholder="openai/whisper-large-v3"
+                          value={hfModelId}
+                          onChange={(e) => setHfModelId(e.target.value)}
+                          className="h-7 text-[11px] max-w-72"
+                        />
+                      </SettingsRow>
+                    </SettingsPanelRow>
+                  )}
+
+                  <SettingsPanelRow>
+                    <SettingsRow
+                      label={t("settingsPage.transcription.backend.apiTokenLabel")}
+                      description={t("settingsPage.transcription.backend.apiTokenDescription")}
+                    >
+                      <Input
+                        type="password"
+                        placeholder="hf_..."
+                        value={hfApiToken}
+                        onChange={(e) => setHfApiToken(e.target.value)}
+                        className="h-7 text-[11px] max-w-72"
+                      />
+                    </SettingsRow>
+                  </SettingsPanelRow>
+
+                  <SettingsPanelRow>
+                    <p className="text-[10px] text-muted-foreground/60 leading-relaxed">
+                      {t("settingsPage.transcription.backend.privacyNote")}
+                    </p>
+                  </SettingsPanelRow>
+                </>
+              )}
+            </SettingsPanel>
+
+            {/* Hardware info card — only for local backend */}
+            {transcriptionBackend === "local" && (
+              <>
+                <SettingsPanel>
+                  <SettingsPanelRow>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Cpu className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-foreground truncate">
+                            {hwInfo?.gpu.hasNvidiaGpu
+                              ? hwInfo.gpu.gpuName
+                              : t("settingsPage.transcription.hardware.noGpu")}
+                          </p>
+                          {hwInfo?.gpu.hasNvidiaGpu && hwInfo.gpu.vramMb && (
+                            <p className="text-xs text-muted-foreground/80">
+                              {t("settingsPage.transcription.hardware.vram", {
+                                vram: hwInfo.gpu.vramMb,
+                              })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {recommendedLabel && (
+                        <Badge variant="secondary" className="shrink-0 text-[10px]">
+                          {t("settingsPage.transcription.hardware.recommendedModel", {
+                            model: recommendedLabel,
+                          })}
+                        </Badge>
+                      )}
+                    </div>
+                  </SettingsPanelRow>
+
+                  <SettingsPanelRow>
+                    <SettingsRow
+                      label={t("settingsPage.transcription.hardware.deviceLabel")}
+                      description={t("settingsPage.transcription.hardware.deviceDescription")}
+                    >
+                      <div className="flex gap-1">
+                        {(["auto", "cuda", "cpu"] as const).map((device) => {
+                          const labels: Record<string, string> = {
+                            auto: t("settingsPage.transcription.hardware.deviceAuto"),
+                            cuda: t("settingsPage.transcription.hardware.deviceCuda"),
+                            cpu: t("settingsPage.transcription.hardware.deviceCpu"),
+                          };
+                          const isDisabled = device === "cuda" && !hwInfo?.gpu.hasNvidiaGpu;
+                          return (
+                            <Button
+                              key={device}
+                              variant={sttDevice === device ? "default" : "outline"}
+                              size="sm"
+                              className="text-[11px] h-7 px-2.5"
+                              disabled={isDisabled}
+                              title={
+                                isDisabled
+                                  ? t("settingsPage.transcription.hardware.deviceCudaUnavailable")
+                                  : undefined
+                              }
+                              onClick={() => setSttDevice(device)}
+                            >
+                              {labels[device]}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </SettingsRow>
+                  </SettingsPanelRow>
+
+                  <SettingsPanelRow>
+                    <SettingsRow
+                      label={t("settingsPage.transcription.hardware.benchmarkLabel")}
+                      description={
+                        hwInfo?.benchmarkMs != null
+                          ? t("settingsPage.transcription.hardware.benchmarkValue", {
+                              ms: hwInfo.benchmarkMs,
+                            })
+                          : undefined
+                      }
+                    >
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-[11px] h-7 px-2.5"
+                        disabled={benchmarkRunning}
+                        onClick={handleRunBenchmark}
+                      >
+                        <Gauge className="h-3 w-3 mr-1" />
+                        {benchmarkRunning
+                          ? t("settingsPage.transcription.hardware.benchmarkRunning")
+                          : t("settingsPage.transcription.hardware.benchmarkRun")}
+                      </Button>
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                </SettingsPanel>
+
+                <TranscriptionModelPicker
+                  selectedLocalModel={fasterWhisperModel}
+                  onLocalModelSelect={setFasterWhisperModel}
+                  variant="settings"
+                />
+              </>
+            )}
           </div>
         );
       }

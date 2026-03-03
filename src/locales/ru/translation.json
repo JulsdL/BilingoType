@@ -1191,6 +1191,23 @@
         "benchmarkRunning": "Измерение...",
         "benchmarkRun": "Измерить"
       },
+      "backend": {
+        "label": "Движок транскрипции",
+        "description": "Выберите, где выполняется распознавание речи",
+        "local": "Локально",
+        "huggingface": "HuggingFace",
+        "hfModeLabel": "Режим HuggingFace",
+        "hfModeDescription": "Выберите между собственной конечной точкой или общим API",
+        "hfApi": "API вывода",
+        "hfEndpoint": "Конечная точка вывода",
+        "endpointUrlLabel": "URL конечной точки",
+        "endpointUrlDescription": "URL вашей выделенной конечной точки вывода HuggingFace",
+        "modelIdLabel": "ID модели",
+        "modelIdDescription": "Модель HuggingFace для транскрипции",
+        "apiTokenLabel": "API-токен",
+        "apiTokenDescription": "Ваш API-токен HuggingFace (начинается с hf_)",
+        "privacyNote": "При использовании HuggingFace аудио отправляется на внешние серверы для обработки. Используйте выделенную конечную точку вывода для максимальной конфиденциальности."
+      },
       "toasts": {
         "switchedCloud": {
           "description": "Транскрипция будет использовать облачный сервис BilingoType.",

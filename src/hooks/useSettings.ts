@@ -126,6 +126,17 @@ function useSettingsInternal() {
     autoLearnCorrections,
     setAutoLearnCorrections,
     updateTranscriptionSettings: store.updateTranscriptionSettings,
+    // HuggingFace inference settings
+    transcriptionBackend: store.transcriptionBackend,
+    setTranscriptionBackend: store.setTranscriptionBackend,
+    hfMode: store.hfMode,
+    setHfMode: store.setHfMode,
+    hfEndpointUrl: store.hfEndpointUrl,
+    setHfEndpointUrl: store.setHfEndpointUrl,
+    hfModelId: store.hfModelId,
+    setHfModelId: store.setHfModelId,
+    hfApiToken: store.hfApiToken,
+    setHfApiToken: store.setHfApiToken,
   };
 }
 

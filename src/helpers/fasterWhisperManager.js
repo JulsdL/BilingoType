@@ -441,20 +441,31 @@ class FasterWhisperManager extends EventEmitter {
   // ---------------------------------------------------------------------------
 
   async startSession(options = {}) {
-    const { model, device, language, initialPrompt } = options;
+    const { model, device, language, initialPrompt, backend, hfEndpointUrl, hfModelId, hfApiToken } =
+      options;
 
     // Ensure sidecar is running
     if (!this.process || !this.ws) {
       await this.start(model || this.currentModel || "base", { device });
     }
 
-    this._sendWs({
+    const startMsg = {
       type: "start",
       model: model || this.currentModel || "base",
       device: device || this.currentDevice || "auto",
       language: language || null,
       initialPrompt: initialPrompt || null,
-    });
+    };
+
+    // Add HuggingFace backend fields when applicable
+    if (backend === "huggingface") {
+      startMsg.backend = "huggingface";
+      if (hfEndpointUrl) startMsg.hfEndpointUrl = hfEndpointUrl;
+      if (hfModelId) startMsg.hfModelId = hfModelId;
+      if (hfApiToken) startMsg.hfApiToken = hfApiToken;
+    }
+
+    this._sendWs(startMsg);
 
     // Wait for ready signal
     return new Promise((resolve, reject) => {

@@ -12,6 +12,10 @@ const PERSISTED_KEYS = [
   "UI_LANGUAGE",
   "STT_DEVICE",
   "STT_BENCHMARK_MS",
+  "TRANSCRIPTION_BACKEND",
+  "HF_ENDPOINT_URL",
+  "HF_MODEL_ID",
+  "HF_API_TOKEN",
 ];
 
 class EnvironmentManager {

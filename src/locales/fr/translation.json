@@ -1208,6 +1208,14 @@
         "apiTokenDescription": "Votre jeton API HuggingFace (commence par hf_)",
         "privacyNote": "Avec HuggingFace, l'audio est envoyé à des serveurs externes pour le traitement. Utilisez un endpoint d'inférence dédié pour une confidentialité maximale."
       },
+      "customModel": {
+        "label": "Modèle personnalisé",
+        "description": "Utilisez votre propre modèle CTranslate2 affiné au lieu d'un modèle Whisper standard",
+        "placeholder": "Aucun modèle personnalisé sélectionné",
+        "browse": "Parcourir…",
+        "clear": "Effacer",
+        "activeNote": "Un modèle CTranslate2 personnalisé est actif. Le sélecteur de modèle standard est masqué tant qu'un chemin de modèle personnalisé est défini."
+      },
       "toasts": {
         "switchedCloud": {
           "description": "La transcription utilisera le service cloud BilingoType.",

@@ -56,6 +56,7 @@ class WhisperEngine:
         device: str = "auto",
         language: str | None = None,
         initial_prompt: str | None = None,
+        custom_model_path: str | None = None,
     ) -> None:
         from faster_whisper import WhisperModel
 
@@ -70,9 +71,12 @@ class WhisperEngine:
         self.initial_prompt = initial_prompt
         self._audio_buffer = bytearray()
 
+        # Use custom CTranslate2 model directory if provided, otherwise standard model name
+        model_source = custom_model_path if custom_model_path else model_name
+
         logger.info(
             "Loading model %s on %s (%s), cache=%s",
-            model_name,
+            model_source,
             resolved_device,
             compute_type,
             cache_dir,
@@ -80,7 +84,7 @@ class WhisperEngine:
 
         try:
             self._model = WhisperModel(
-                model_name,
+                model_source,
                 device=resolved_device,
                 compute_type=compute_type,
                 download_root=cache_dir,
@@ -92,7 +96,7 @@ class WhisperEngine:
                 )
                 self.device = "cpu"
                 self._model = WhisperModel(
-                    model_name,
+                    model_source,
                     device="cpu",
                     compute_type="int8",
                     download_root=cache_dir,
@@ -100,7 +104,7 @@ class WhisperEngine:
             else:
                 raise
 
-        logger.info("Model %s ready on %s", model_name, self.device)
+        logger.info("Model %s ready on %s", model_source, self.device)
 
     def transcribe_chunk(self, pcm_bytes: bytes) -> dict | None:
         """Accumulate audio and transcribe when enough data is buffered.

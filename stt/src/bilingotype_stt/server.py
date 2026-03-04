@@ -138,6 +138,7 @@ async def _handle_start(
     device = msg.get("device", "auto")
     language = msg.get("language")
     initial_prompt = msg.get("initialPrompt")
+    custom_model_path = msg.get("customModelPath") or None
 
     cuda_fallback = False
 
@@ -147,6 +148,7 @@ async def _handle_start(
             device=device,
             language=language,
             initial_prompt=initial_prompt,
+            custom_model_path=custom_model_path,
         )
         # Check if engine fell back to CPU from CUDA
         if device in ("auto", "cuda") and engine.device == "cpu" and device != "cpu":

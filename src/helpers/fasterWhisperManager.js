@@ -441,8 +441,17 @@ class FasterWhisperManager extends EventEmitter {
   // ---------------------------------------------------------------------------
 
   async startSession(options = {}) {
-    const { model, device, language, initialPrompt, backend, hfEndpointUrl, hfModelId, hfApiToken } =
-      options;
+    const {
+      model,
+      device,
+      language,
+      initialPrompt,
+      backend,
+      hfEndpointUrl,
+      hfModelId,
+      hfApiToken,
+      customModelPath,
+    } = options;
 
     // Ensure sidecar is running
     if (!this.process || !this.ws) {
@@ -463,6 +472,11 @@ class FasterWhisperManager extends EventEmitter {
       if (hfEndpointUrl) startMsg.hfEndpointUrl = hfEndpointUrl;
       if (hfModelId) startMsg.hfModelId = hfModelId;
       if (hfApiToken) startMsg.hfApiToken = hfApiToken;
+    }
+
+    // Pass custom CTranslate2 model path if set
+    if (customModelPath) {
+      startMsg.customModelPath = customModelPath;
     }
 
     this._sendWs(startMsg);

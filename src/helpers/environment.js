@@ -16,6 +16,7 @@ const PERSISTED_KEYS = [
   "HF_ENDPOINT_URL",
   "HF_MODEL_ID",
   "HF_API_TOKEN",
+  "CUSTOM_MODEL_PATH",
 ];
 
 class EnvironmentManager {

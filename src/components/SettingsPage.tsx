@@ -151,6 +151,8 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
     setHfModelId,
     hfApiToken,
     setHfApiToken,
+    customModelPath,
+    setCustomModelPath,
   } = useSettings();
 
   const { t } = useTranslation();
@@ -897,11 +899,70 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
                   </SettingsPanelRow>
                 </SettingsPanel>
 
-                <TranscriptionModelPicker
-                  selectedLocalModel={fasterWhisperModel}
-                  onLocalModelSelect={setFasterWhisperModel}
-                  variant="settings"
-                />
+                {/* Custom CTranslate2 model path */}
+                <SettingsPanel>
+                  <SettingsPanelRow>
+                    <SettingsRow
+                      label={t("settingsPage.transcription.customModel.label")}
+                      description={t("settingsPage.transcription.customModel.description")}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="text"
+                          readOnly
+                          placeholder={t("settingsPage.transcription.customModel.placeholder")}
+                          value={customModelPath}
+                          className="h-7 text-[11px] max-w-56 cursor-default"
+                          title={customModelPath || undefined}
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-[11px] h-7 px-2.5 shrink-0"
+                          onClick={async () => {
+                            const result = await window.electronAPI?.browseCustomModel?.();
+                            if (result && !result.canceled && result.path) {
+                              setCustomModelPath(result.path);
+                              window.electronAPI?.saveCustomModelPath?.(result.path);
+                            }
+                          }}
+                        >
+                          <FolderOpen className="h-3 w-3 mr-1" />
+                          {t("settingsPage.transcription.customModel.browse")}
+                        </Button>
+                        {customModelPath && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-[11px] h-7 px-2"
+                            onClick={() => {
+                              setCustomModelPath("");
+                              window.electronAPI?.saveCustomModelPath?.("");
+                            }}
+                          >
+                            {t("settingsPage.transcription.customModel.clear")}
+                          </Button>
+                        )}
+                      </div>
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                  {customModelPath && (
+                    <SettingsPanelRow>
+                      <p className="text-[10px] text-muted-foreground/60 leading-relaxed">
+                        {t("settingsPage.transcription.customModel.activeNote")}
+                      </p>
+                    </SettingsPanelRow>
+                  )}
+                </SettingsPanel>
+
+                {/* Standard model picker — hidden when a custom model is active */}
+                {!customModelPath && (
+                  <TranscriptionModelPicker
+                    selectedLocalModel={fasterWhisperModel}
+                    onLocalModelSelect={setFasterWhisperModel}
+                    variant="settings"
+                  />
+                )}
               </>
             )}
           </div>

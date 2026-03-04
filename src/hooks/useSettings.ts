@@ -137,6 +137,9 @@ function useSettingsInternal() {
     setHfModelId: store.setHfModelId,
     hfApiToken: store.hfApiToken,
     setHfApiToken: store.setHfApiToken,
+    // Custom local model path
+    customModelPath: store.customModelPath,
+    setCustomModelPath: store.setCustomModelPath,
   };
 }
 

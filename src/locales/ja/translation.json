@@ -1208,6 +1208,14 @@
         "apiTokenDescription": "HuggingFace APIトークン（hf_で始まります）",
         "privacyNote": "HuggingFace使用時、音声は外部サーバーに送信されて処理されます。最大限のプライバシーには専用推論エンドポイントをご利用ください。"
       },
+      "customModel": {
+        "label": "カスタムモデル",
+        "description": "標準のWhisperモデルの代わりに、独自のファインチューニング済みCTranslate2モデルを使用します",
+        "placeholder": "カスタムモデル未選択",
+        "browse": "参照…",
+        "clear": "クリア",
+        "activeNote": "カスタムCTranslate2モデルが有効です。カスタムモデルパスが設定されている間、標準モデルピッカーは非表示になります。"
+      },
       "toasts": {
         "switchedCloud": {
           "description": "文字起こしに BilingoType のクラウドサービスを使用します。",

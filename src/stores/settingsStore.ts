@@ -71,6 +71,9 @@ export interface SettingsState
   hfModelId: string;
   hfApiToken: string;
 
+  // Custom local CTranslate2 model path
+  customModelPath: string;
+
   setFasterWhisperModel: (value: string) => void;
   setPreferredLanguage: (value: string) => void;
   setCustomDictionary: (words: string[]) => void;
@@ -92,6 +95,7 @@ export interface SettingsState
   setHfEndpointUrl: (value: string) => void;
   setHfModelId: (value: string) => void;
   setHfApiToken: (value: string) => void;
+  setCustomModelPath: (value: string) => void;
 
   updateTranscriptionSettings: (settings: Partial<TranscriptionSettings>) => void;
 }
@@ -162,6 +166,9 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   hfEndpointUrl: readString("hfEndpointUrl", ""),
   hfModelId: readString("hfModelId", "openai/whisper-large-v3"),
   hfApiToken: readString("hfApiToken", ""),
+
+  // Custom local CTranslate2 model path
+  customModelPath: readString("customModelPath", ""),
 
   setFasterWhisperModel: createStringSetter("fasterWhisperModel"),
   setPreferredLanguage: createStringSetter("preferredLanguage"),
@@ -255,6 +262,8 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     createStringSetter("hfApiToken")(value);
     _syncHfSettingsToMain();
   },
+
+  setCustomModelPath: createStringSetter("customModelPath"),
 
   updateTranscriptionSettings: (settings: Partial<TranscriptionSettings>) => {
     const s = useSettingsStore.getState();

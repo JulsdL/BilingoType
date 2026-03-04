@@ -237,6 +237,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getHfSettings: () => ipcRenderer.invoke("get-hf-settings"),
   saveHfSettings: (settings) => ipcRenderer.invoke("save-hf-settings", settings),
 
+  // Custom local model path
+  browseCustomModel: () => ipcRenderer.invoke("browse-custom-model"),
+  saveCustomModelPath: (modelPath) => ipcRenderer.invoke("save-custom-model-path", modelPath),
+  getCustomModelPath: () => ipcRenderer.invoke("get-custom-model-path"),
+
   // Hotkey events
   onHotkeyFallbackUsed: (callback) => {
     const listener = (_event, data) => callback?.(data);

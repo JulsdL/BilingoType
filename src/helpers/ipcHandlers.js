@@ -728,6 +728,28 @@ class IPCHandlers {
       return { success: true };
     });
 
+    ipcMain.handle("browse-custom-model", async () => {
+      const { dialog } = require("electron");
+      const result = await dialog.showOpenDialog({
+        properties: ["openDirectory"],
+        title: "Select CTranslate2 model directory",
+      });
+      if (result.canceled || !result.filePaths.length) {
+        return { canceled: true };
+      }
+      return { canceled: false, path: result.filePaths[0] };
+    });
+
+    ipcMain.handle("save-custom-model-path", async (_event, modelPath) => {
+      this.environmentManager._saveKey("CUSTOM_MODEL_PATH", modelPath || "");
+      await this.environmentManager.saveAllKeysToEnvFile();
+      return { success: true };
+    });
+
+    ipcMain.handle("get-custom-model-path", async () => {
+      return this.environmentManager._getKey("CUSTOM_MODEL_PATH") || "";
+    });
+
     ipcMain.handle("sync-startup-preferences", async (event, prefs) => {
       const setVars = {};
       const clearVars = [];
@@ -956,12 +978,27 @@ class IPCHandlers {
         return { success: false, error: "faster-whisper not available" };
       }
       try {
-        const result = await this.fasterWhisperManager.startSession({
+        const sessionOpts = {
           model: options.model || "base",
           device: options.device || process.env.STT_DEVICE || "auto",
           language: options.language,
           initialPrompt: options.initialPrompt,
-        });
+        };
+
+        // Forward HuggingFace backend options if present
+        if (options.backend === "huggingface") {
+          sessionOpts.backend = "huggingface";
+          if (options.hfEndpointUrl) sessionOpts.hfEndpointUrl = options.hfEndpointUrl;
+          if (options.hfModelId) sessionOpts.hfModelId = options.hfModelId;
+          if (options.hfApiToken) sessionOpts.hfApiToken = options.hfApiToken;
+        }
+
+        // Forward custom CTranslate2 model path if present
+        if (options.customModelPath) {
+          sessionOpts.customModelPath = options.customModelPath;
+        }
+
+        const result = await this.fasterWhisperManager.startSession(sessionOpts);
         return result;
       } catch (error) {
         debugLogger.error("faster-whisper streaming start failed", { error: error.message });
@@ -1090,6 +1127,11 @@ class IPCHandlers {
           if (options.hfEndpointUrl) sessionOpts.hfEndpointUrl = options.hfEndpointUrl;
           if (options.hfModelId) sessionOpts.hfModelId = options.hfModelId;
           if (options.hfApiToken) sessionOpts.hfApiToken = options.hfApiToken;
+        }
+
+        // Forward custom CTranslate2 model path if present
+        if (options.customModelPath) {
+          sessionOpts.customModelPath = options.customModelPath;
         }
 
         await this.fasterWhisperManager.startSession(sessionOpts);

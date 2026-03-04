@@ -1180,6 +1180,14 @@
         "apiTokenDescription": "Seu token de API do HuggingFace (começa com hf_)",
         "privacyNote": "Ao usar HuggingFace, o áudio é enviado para servidores externos para processamento. Use um endpoint de inferência dedicado para máxima privacidade."
       },
+      "customModel": {
+        "label": "Modelo personalizado",
+        "description": "Use seu próprio modelo CTranslate2 ajustado em vez de um modelo Whisper padrão",
+        "placeholder": "Nenhum modelo personalizado selecionado",
+        "browse": "Procurar…",
+        "clear": "Limpar",
+        "activeNote": "Um modelo CTranslate2 personalizado está ativo. O seletor de modelos padrão está oculto enquanto um caminho de modelo personalizado estiver definido."
+      },
       "toasts": {
         "switchedCloud": {
           "description": "A transcrição usará o serviço de nuvem do BilingoType.",

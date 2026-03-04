@@ -1208,6 +1208,14 @@
         "apiTokenDescription": "您的 HuggingFace API 權杖（以 hf_ 開頭）",
         "privacyNote": "使用 HuggingFace 時，音訊將傳送至外部伺服器進行處理。使用專用推論端點以獲得最大隱私保護。"
       },
+      "customModel": {
+        "label": "自訂模型",
+        "description": "使用您自己的微調 CTranslate2 模型，而不是標準 Whisper 模型",
+        "placeholder": "未選擇自訂模型",
+        "browse": "瀏覽…",
+        "clear": "清除",
+        "activeNote": "自訂 CTranslate2 模型已啟用。設定自訂模型路徑時，標準模型選擇器將被隱藏。"
+      },
       "toasts": {
         "switchedCloud": {
           "description": "轉錄將使用 BilingoType 雲端服務。",

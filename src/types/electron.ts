@@ -243,6 +243,11 @@ declare global {
         hfApiToken?: string;
       }) => Promise<{ success: boolean }>;
 
+      // Custom local model path
+      browseCustomModel?: () => Promise<{ canceled: boolean; path?: string }>;
+      saveCustomModelPath?: (modelPath: string) => Promise<{ success: boolean }>;
+      getCustomModelPath?: () => Promise<string>;
+
       // Clipboard operations
       checkAccessibilityPermission: () => Promise<boolean>;
       readClipboard: () => Promise<string>;
@@ -284,6 +289,11 @@ declare global {
         device?: string;
         language?: string;
         initialPrompt?: string;
+        backend?: string;
+        hfEndpointUrl?: string;
+        hfModelId?: string;
+        hfApiToken?: string;
+        customModelPath?: string;
       }) => Promise<{ success: boolean; error?: string }>;
       fasterWhisperStreamingSend?: (pcmBase64: string) => void;
       fasterWhisperStreamingStop?: () => Promise<{

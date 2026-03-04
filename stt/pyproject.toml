@@ -4,11 +4,11 @@ version = "0.1.0"
 description = "faster-whisper STT sidecar for BilingoType"
 requires-python = ">=3.12,<3.14"
 dependencies = [
-    "faster-whisper>=1.1.0",
-    "websockets>=14.0",
+    "faster-whisper>=1.2.0",
+    "websockets>=14.0,<17",
     "numpy>=1.26",
     "silero-vad>=5.1",
-    "httpx>=0.27",
+    "httpx>=0.28",
 ]
 
 [project.optional-dependencies]

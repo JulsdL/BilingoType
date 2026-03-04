@@ -4,7 +4,7 @@ This document provides comprehensive technical details about the BilingoType pro
 
 ## Project Overview
 
-BilingoType is an Electron-based desktop dictation application that uses whisper.cpp for speech-to-text transcription. It supports both local (privacy-focused) and cloud (OpenAI API) processing modes.
+BilingoType is an Electron-based desktop dictation application focused on French/English code-switching. It uses **faster-whisper** (via a Python sidecar) for local speech-to-text transcription, with optional **HuggingFace Inference** as a cloud alternative. Forked from OpenWhispr, it has been stripped of whisper.cpp, Parakeet/sherpa-onnx, cloud providers (OpenAI, Anthropic, Gemini, Groq, Mistral), and llama-server.
 
 ## Architecture Overview
 
@@ -13,7 +13,7 @@ BilingoType is an Electron-based desktop dictation application that uses whisper
 - **Desktop Framework**: Electron 36 with context isolation
 - **Database**: better-sqlite3 for local transcription history
 - **UI Components**: shadcn/ui with Radix primitives
-- **Speech Processing**: whisper.cpp + NVIDIA Parakeet (via sherpa-onnx) + OpenAI API
+- **Speech Processing**: faster-whisper (CTranslate2) via Python sidecar + HuggingFace Inference API
 - **Audio Processing**: FFmpeg (bundled via ffmpeg-static)
 
 ### Key Architectural Decisions
@@ -27,27 +27,53 @@ BilingoType is an Electron-based desktop dictation application that uses whisper
    - Main Process: Electron main, IPC handlers, database operations
    - Renderer Process: React app with context isolation
    - Preload Script: Secure bridge between processes
+   - Python Sidecar: faster-whisper + HuggingFace transcription via WebSocket
 
-3. **Audio Pipeline**:
-   - MediaRecorder API → Blob → ArrayBuffer → IPC → File → whisper.cpp
-   - Automatic cleanup of temporary files after processing
+3. **Transcription Pipeline**:
+   ```
+   Renderer (MediaRecorder API)
+       │ IPC (PCM base64)
+       ▼
+   Main Process (fasterWhisperManager.js)
+       │ WebSocket (ws://127.0.0.1:PORT)
+       ▼
+   Python Sidecar (bilingotype_stt)
+       │
+       ├─ Local: faster-whisper engine (CTranslate2)
+       └─ Cloud: HuggingFace Inference API/Endpoints (httpx)
+   ```
+
+4. **Transcription Backends**:
+   - `"local"` (default): faster-whisper runs on device (CPU or CUDA)
+   - `"huggingface"`: Audio sent to HuggingFace Inference API or user's own Inference Endpoint
+   - Backend selection persisted in localStorage + `.env` file
 
 ## File Structure and Responsibilities
 
 ### Main Process Files
 
 - **main.js**: Application entry point, initializes all managers
-- **preload.js**: Exposes safe IPC methods to renderer via window.api
+- **preload.js**: Exposes safe IPC methods to renderer via `window.electronAPI`
+
+### Python Sidecar (stt/)
+
+- **stt/src/bilingotype_stt/server.py**: WebSocket server, routes `start`/`audio`/`stop` messages to local engine or HF client
+- **stt/src/bilingotype_stt/engine.py**: `WhisperEngine` class — loads faster-whisper models (standard or custom CTranslate2 path), accumulates audio chunks, transcribes
+- **stt/src/bilingotype_stt/hf_client.py**: `HuggingFaceClient` — sends accumulated PCM audio as WAV to HF Inference API/Endpoints via httpx
+- **stt/src/bilingotype_stt/vad.py**: `VadEngine` — Silero VAD for speech activity detection
+- **stt/src/bilingotype_stt/punctuation.py**: Voice command detection (e.g., "period" → ".", "virgule" → ",")
+- **stt/pyproject.toml**: Python dependencies (faster-whisper, websockets, numpy, httpx, silero-vad)
 
 ### Native Resources (resources/)
 
 - **windows-key-listener.c**: C source for Windows low-level keyboard hook (Push-to-Talk)
 - **globe-listener.swift**: Swift source for macOS Globe/Fn key detection
-- **bin/**: Directory for compiled native binaries (whisper-cpp, nircmd, key listeners)
+- **bin/**: Compiled native binaries (nircmd, key listeners, fast-paste, text-monitor)
 
 ### Helper Modules (src/helpers/)
 
-- **audioManager.js**: Handles audio device management
+- **fasterWhisperManager.js**: Spawns Python sidecar via `uv`, manages WebSocket connection, session lifecycle, crash recovery with exponential backoff
+- **audioManager.js**: Handles audio device management and recording routing
 - **clipboard.js**: Cross-platform clipboard operations
   - macOS: AppleScript-based paste with accessibility permission check
   - Windows: PowerShell SendKeys with nircmd.exe fallback
@@ -56,28 +82,17 @@ BilingoType is an Electron-based desktop dictation application that uses whisper
 - **debugLogger.js**: Debug logging system with file output
 - **devServerManager.js**: Vite dev server integration
 - **dragManager.js**: Window dragging functionality
-- **environment.js**: Environment variable and OpenAI API management
+- **environment.js**: Environment variable management and `.env` file persistence
 - **hotkeyManager.js**: Global hotkey registration and management
   - Handles platform-specific defaults (GLOBE on macOS, backtick on Windows/Linux)
   - Auto-fallback to F8/F9 if default hotkey is unavailable
-  - Notifies renderer via IPC when hotkey registration fails
   - Integrates with GnomeShortcutManager for GNOME Wayland support
-- **gnomeShortcut.js**: GNOME Wayland global shortcut integration
-  - Uses D-Bus service to receive hotkey toggle commands
-  - Registers shortcuts via gsettings (visible in GNOME Settings → Keyboard → Shortcuts)
-  - Converts Electron hotkey format to GNOME keysym format
-  - Only active on Linux + Wayland + GNOME desktop
+- **gnomeShortcut.js**: GNOME Wayland global shortcut integration via D-Bus
 - **ipcHandlers.js**: Centralized IPC handler registration
 - **windowsKeyManager.js**: Windows Push-to-Talk support with native key listener
-  - Spawns native `windows-key-listener.exe` binary for low-level keyboard hooks
-  - Supports compound hotkeys (e.g., `Ctrl+Shift+F11`, `CommandOrControl+Space`)
-  - Emits `key-down` and `key-up` events for push-to-talk functionality
-  - Graceful fallback if binary unavailable
+- **whisperCudaManager.js**: CUDA detection utilities for GPU/CPU selection
 - **menuManager.js**: Application menu management
 - **tray.js**: System tray icon and menu
-- **whisper.js**: Local whisper.cpp integration and model management
-- **parakeet.js**: NVIDIA Parakeet model management via sherpa-onnx
-- **parakeetServer.js**: sherpa-onnx CLI wrapper for transcription
 - **windowConfig.js**: Centralized window configuration
 - **windowManager.js**: Window creation and lifecycle management
 
@@ -85,9 +100,9 @@ BilingoType is an Electron-based desktop dictation application that uses whisper
 
 - **App.jsx**: Main dictation interface with recording states
 - **ControlPanel.tsx**: Settings, history, model management UI
-- **OnboardingFlow.tsx**: 8-step first-time setup wizard
-- **SettingsPage.tsx**: Comprehensive settings interface
-- **WhisperModelPicker.tsx**: Model selection and download UI
+- **OnboardingFlow.tsx**: First-time setup wizard
+- **SettingsPage.tsx**: Comprehensive settings interface (transcription backend, HF settings, custom model path, hardware, dictionary, hotkeys, etc.)
+- **TranscriptionModelPicker.tsx**: faster-whisper model selection and download UI
 - **ui/**: Reusable UI components (buttons, cards, inputs, etc.)
 
 ### React Hooks (src/hooks/)
@@ -98,91 +113,93 @@ BilingoType is an Electron-based desktop dictation application that uses whisper
 - **useHotkey.js**: Hotkey state management
 - **useLocalStorage.ts**: Type-safe localStorage wrapper
 - **usePermissions.ts**: System permission checks and settings access
-  - `openMicPrivacySettings()`: Opens OS microphone privacy settings
-  - `openSoundInputSettings()`: Opens OS sound input device settings
-  - `openAccessibilitySettings()`: Opens OS accessibility settings (macOS only)
-- **useSettings.ts**: Application settings management
-- **useWhisper.ts**: Whisper binary availability check
-
-### Services
-
-- **ReasoningService.ts**: AI processing for agent-addressed commands
-  - Detects when user addresses their named agent
-  - Routes to appropriate AI provider (OpenAI/Anthropic/Gemini)
-  - Removes agent name from final output
-  - Supports GPT-5, Claude 4.6 (Opus/Sonnet/Haiku), and Gemini 3.1 Pro / 3 Flash models
-
-### whisper.cpp Integration
-
-- **whisper.js**: Native binary wrapper for local transcription
-  - Bundled binaries in `resources/bin/whisper-cpp-{platform}-{arch}`
-  - Falls back to system installation (`brew install whisper-cpp`)
-  - GGML model downloads from HuggingFace
-  - Models stored in `~/.cache/bilingotype/whisper-models/`
-
-### NVIDIA Parakeet Integration (via sherpa-onnx)
-
-- **parakeet.js**: Model management for NVIDIA Parakeet ASR models
-  - Uses sherpa-onnx runtime for cross-platform ONNX inference
-  - Bundled binaries in `resources/bin/sherpa-onnx-{platform}-{arch}`
-  - INT8 quantized models for efficient CPU inference
-  - Models stored in `~/.cache/bilingotype/parakeet-models/`
-  - Server pre-warming on startup when `LOCAL_TRANSCRIPTION_PROVIDER=nvidia` is set
-  - Provider preference persisted to `.env` via `saveAllKeysToEnvFile()` on server start/stop
-
-- **Available Models**:
-  - `parakeet-tdt-0.6b-v3`: Multilingual (25 languages), ~680MB
-
-- **Download URLs**: Models from sherpa-onnx ASR models release on GitHub
+- **useSettings.ts**: Application settings management (wraps Zustand store + context)
+- **useModelDownload.ts**: Model download progress tracking
 
 ### Build Scripts (scripts/)
 
-- **download-whisper-cpp.js**: Downloads whisper.cpp binaries from GitHub releases
-- **download-llama-server.js**: Downloads llama.cpp server for local LLM inference
 - **download-nircmd.js**: Downloads nircmd.exe for Windows clipboard operations
 - **download-windows-key-listener.js**: Downloads prebuilt Windows key listener binary
-- **download-sherpa-onnx.js**: Downloads sherpa-onnx binaries for Parakeet support
 - **build-globe-listener.js**: Compiles macOS Globe key listener from Swift source
 - **build-windows-key-listener.js**: Compiles Windows key listener (for local development)
 - **run-electron.js**: Development script to launch Electron with proper environment
 - **lib/download-utils.js**: Shared utilities for downloading and extracting files
-  - `fetchLatestRelease(repo, options)`: Fetches latest release from GitHub API
-  - `downloadFile(url, dest)`: Downloads file with progress and retry logic
-  - `extractZip(zipPath, destDir)`: Cross-platform zip extraction
-  - `parseArgs()`: Parses CLI arguments for platform/arch targeting
-  - Supports `GITHUB_TOKEN` for authenticated requests (higher rate limits)
 
 ## Key Implementation Details
 
-### 1. FFmpeg Integration
+### 1. faster-whisper Sidecar
 
-FFmpeg is bundled with the app and doesn't require system installation:
-```javascript
-// FFmpeg is unpacked from ASAR to app.asar.unpacked/node_modules/ffmpeg-static/
+The Python sidecar is managed by `FasterWhisperManager` in the main process:
+- Spawned via `uv run` with the `stt/` project
+- Communicates over WebSocket on a random port in range 8200-8229
+- Signals readiness via `BILINGOTYPE_STT_READY:{port}` on stdout
+- Auto-restarts on crash with exponential backoff (max 3 attempts)
+- Health checks via ping/pong every 5 seconds
+
+**Session protocol** (JSON over WebSocket):
+```json
+// Electron → Python
+{"type": "start", "model": "base", "device": "auto", "language": null, "initialPrompt": null}
+{"type": "start", "backend": "huggingface", "hfApiToken": "hf_...", "hfModelId": "openai/whisper-large-v3"}
+{"type": "start", "model": "base", "customModelPath": "/path/to/ctranslate2/model"}
+{"type": "audio", "data": "<base64 PCM int16 16kHz mono>"}
+{"type": "stop"}
+{"type": "ping"}
+
+// Python → Electron
+{"type": "ready"}
+{"type": "partial", "text": "hello", "language": "en"}
+{"type": "final", "text": "Hello, how are you?", "language": "en"}
+{"type": "error", "message": "...", "recoverable": true}
+{"type": "pong"}
 ```
 
-### 2. Audio Recording Flow
+### 2. HuggingFace Inference
 
-1. User presses hotkey → MediaRecorder starts
-2. Audio chunks collected in array
-3. User presses hotkey again → Recording stops
-4. Blob created from chunks → Converted to ArrayBuffer
-5. Sent via IPC
-6. Main process writes to temporary file
-7. whisper.cpp processes file → Result sent back
-8. Temporary file deleted
+Two modes selectable in settings:
+- **Inference API**: Shared infrastructure, `https://api-inference.huggingface.co/models/{model_id}`
+- **Inference Endpoint**: User's own dedicated server (custom URL)
 
-### 3. Local Whisper Models (GGML format)
+Audio is accumulated in the sidecar during HF sessions and sent as a batch WAV via HTTP POST on `stop`.
 
-Models stored in `~/.cache/bilingotype/whisper-models/`:
-- tiny: ~75MB (fastest, lowest quality)
-- base: ~142MB (recommended balance)
-- small: ~466MB (better quality)
-- medium: ~1.5GB (high quality)
-- large: ~3GB (best quality)
-- turbo: ~1.6GB (fast with good quality)
+### 3. Custom CTranslate2 Model Path
 
-### 4. Database Schema
+Users can load their own fine-tuned Whisper models converted to CTranslate2 format:
+- Browse button opens directory picker (`showOpenDialog`)
+- Path persisted to `.env` via `CUSTOM_MODEL_PATH`
+- When set, standard model picker is hidden
+- Path passed to `WhisperEngine(model_source)` which accepts both model names and local paths
+
+### 4. Local Whisper Models (CTranslate2 format)
+
+Models stored in `~/.cache/bilingotype/faster-whisper-models/`:
+- tiny, base, small, medium, large-v3, large-v3-turbo
+- Downloaded from HuggingFace on first use
+- Device auto-detection: CUDA (int8_float16) → CPU (int8) fallback
+
+### 5. Settings Storage
+
+Settings stored in localStorage (renderer) with Zustand store sync:
+- `fasterWhisperModel`: Selected faster-whisper model
+- `sttDevice`: "auto" | "cuda" | "cpu"
+- `transcriptionBackend`: "local" | "huggingface"
+- `hfMode`: "endpoint" | "api"
+- `hfEndpointUrl`: HuggingFace Inference Endpoint URL
+- `hfModelId`: HuggingFace model ID (default: "openai/whisper-large-v3")
+- `hfApiToken`: HuggingFace API token
+- `customModelPath`: Path to custom CTranslate2 model directory
+- `preferredLanguage`: Language code or "auto"
+- `customDictionary`: JSON array of words/phrases for transcription hints
+- `dictationKey`: Hotkey string
+- `activationMode`: "tap" | "push"
+- `theme`: "light" | "dark" | "auto"
+
+Environment variables persisted to `.env` (via `saveAllKeysToEnvFile()`):
+- `FASTER_WHISPER_MODEL`, `STT_DEVICE`, `DICTATION_KEY`, `ACTIVATION_MODE`
+- `TRANSCRIPTION_BACKEND`, `HF_ENDPOINT_URL`, `HF_MODEL_ID`, `HF_API_TOKEN`
+- `CUSTOM_MODEL_PATH`, `UI_LANGUAGE`, `STT_BENCHMARK_MS`
+
+### 6. Database Schema
 
 ```sql
 CREATE TABLE transcriptions (
@@ -197,230 +214,60 @@ CREATE TABLE transcriptions (
 );
 ```
 
-### 5. Settings Storage
-
-Settings stored in localStorage with these keys:
-- `whisperModel`: Selected Whisper model
-- `useLocalWhisper`: Boolean for local vs cloud
-- `openaiApiKey`: Encrypted API key
-- `anthropicApiKey`: Encrypted API key
-- `geminiApiKey`: Encrypted API key
-- `language`: Selected language code
-- `agentName`: User's custom agent name
-- `reasoningModel`: Selected AI model for processing
-- `reasoningProvider`: AI provider (openai/anthropic/gemini/local)
-- `hotkey`: Custom hotkey configuration
-- `hasCompletedOnboarding`: Onboarding completion flag
-- `customDictionary`: JSON array of words/phrases for improved transcription accuracy
-
-Environment variables persisted to `.env` (via `saveAllKeysToEnvFile()`):
-- `LOCAL_TRANSCRIPTION_PROVIDER`: Transcription engine (`nvidia` for Parakeet)
-- `PARAKEET_MODEL`: Selected Parakeet model name (e.g., `parakeet-tdt-0.6b-v3`)
-
-### 6. Language Support
+### 7. Language Support
 
 58 languages supported (see src/utils/languages.ts):
 - Each language has a two-letter code and label
-- "auto" for automatic detection
-- Passed to whisper.cpp via -l parameter
+- "auto" for automatic detection (enables code-switching)
+- Passed to faster-whisper via `language` parameter in session start
 
-### 7. Agent Naming System
+### 8. Custom Dictionary
 
-- User names their agent during onboarding (step 6/8)
-- Name stored in localStorage and database
-- ReasoningService detects "Hey [AgentName]" patterns
-- AI processes command and removes agent reference from output
-- Supports multiple AI providers (all models defined in `src/models/modelRegistryData.json`):
-  - **OpenAI** (Responses API):
-    - GPT-5.2 (`gpt-5.2`) - Latest flagship reasoning model
-    - GPT-5 Mini (`gpt-5-mini`) - Fast and cost-efficient
-    - GPT-5 Nano (`gpt-5-nano`) - Ultra-fast, low latency
-    - GPT-4.1 Series (`gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`) - Strong baseline with 1M context
-  - **Anthropic** (Via IPC bridge to avoid CORS):
-    - Claude Sonnet 4.6 (`claude-sonnet-4-6`) - Balanced performance
-    - Claude Haiku 4.5 (`claude-haiku-4-5`) - Fast with near-frontier intelligence
-    - Claude Opus 4.6 (`claude-opus-4-6`) - Most capable Claude model
-  - **Google Gemini** (Direct API integration):
-    - Gemini 3.1 Pro (`gemini-3.1-pro-preview`) - Most capable Gemini model
-    - Gemini 3 Flash (`gemini-3-flash-preview`) - Ultra-fast, high-capability next-gen model
-    - Gemini 2.5 Flash Lite (`gemini-2.5-flash-lite`) - Lowest latency and cost
-  - **Local**: GGUF models via llama.cpp (Qwen, Llama, Mistral, GPT-OSS)
+Improve transcription accuracy for specific words, names, or technical terms:
+- Words stored as JSON array in localStorage (`customDictionary` key) and synced to SQLite
+- On transcription, words joined and passed as `initialPrompt` parameter to faster-whisper
+- Auto-learn corrections: When user edits transcribed text in external apps, corrections detected and added to dictionary automatically
 
-### 8. Model Registry Architecture
-
-All AI model definitions are centralized in `src/models/modelRegistryData.json` as the single source of truth:
-
-```json
-{
-  "cloudProviders": [...],   // OpenAI, Anthropic, Gemini API models
-  "localProviders": [...]    // GGUF models with download URLs
-}
-```
-
-**Key files:**
-- `src/models/modelRegistryData.json` - Single source of truth for all models
-- `src/models/ModelRegistry.ts` - TypeScript wrapper with helper methods
-- `src/config/aiProvidersConfig.ts` - Derives AI_MODES from registry
-- `src/utils/languages.ts` - Derives REASONING_PROVIDERS from registry
-- `src/helpers/modelManagerBridge.js` - Handles local model downloads
-
-**Local model features:**
-- Each model has `hfRepo` for direct HuggingFace download URLs
-- `promptTemplate` defines the chat format (ChatML, Llama, Mistral)
-- Download URLs constructed as: `{baseUrl}/{hfRepo}/resolve/main/{fileName}`
-
-### 9. API Integrations and Updates
-
-**OpenAI Responses API (September 2025)**:
-- Migrated from Chat Completions to new Responses API
-- Endpoint: `https://api.openai.com/v1/responses`
-- Simplified request format with `input` array instead of `messages`
-- New response format with `output` array containing typed items
-- Automatic handling of GPT-5 and o-series model requirements
-- No temperature parameter for newer models (GPT-5, o-series)
-
-**Anthropic Integration**:
-- Routes through IPC handler to avoid CORS issues in renderer process
-- Uses main process for API calls with proper error handling
-- Model IDs use alias format (e.g., `claude-sonnet-4-6` not date-suffixed versions)
-
-**Gemini Integration**:
-- Direct API calls from renderer process
-- Increased token limits for Gemini 3.1 Pro (2000 minimum)
-- Proper handling of thinking process in responses
-- Error handling for MAX_TOKENS finish reason
-
-**API Key Persistence**:
-- All API keys now properly persist to `.env` file
-- Keys stored in environment variables and reloaded on app start
-- Centralized `saveAllKeysToEnvFile()` method ensures consistency
-
-### 10. System Settings Integration
+### 9. System Settings Integration
 
 The app can open OS-level settings for microphone permissions, sound input selection, and accessibility:
 
-**IPC Handlers** (in `ipcHandlers.js`):
-- `open-microphone-settings`: Opens microphone privacy settings
-- `open-sound-input-settings`: Opens sound/audio input device settings
-- `open-accessibility-settings`: Opens accessibility privacy settings (macOS only)
-
-**Platform-specific URLs**:
 | Platform | Microphone Privacy | Sound Input | Accessibility |
 |----------|-------------------|-------------|---------------|
 | macOS | `x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone` | `x-apple.systempreferences:com.apple.preference.sound?input` | `x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility` |
 | Windows | `ms-settings:privacy-microphone` | `ms-settings:sound` | N/A |
-| Linux | Manual (no URL scheme) | Manual (e.g., pavucontrol) | N/A |
+| Linux | Manual | Manual (e.g., pavucontrol) | N/A |
 
-**UI Component** (`MicPermissionWarning.tsx`):
-- Shows platform-appropriate buttons and messages
-- Linux only shows "Open Sound Settings" (no separate privacy settings)
-- macOS/Windows show both sound and privacy buttons
-
-### 11. Debug Mode
+### 10. Debug Mode
 
 Enable with `--log-level=debug` or `BILINGOTYPE_LOG_LEVEL=debug` (can be set in `.env`):
 - Logs saved to platform-specific app data directory
-- Comprehensive logging of audio pipeline
-- FFmpeg path resolution details
-- Audio level analysis
-- Complete reasoning pipeline debugging with stage-by-stage logging
+- Comprehensive logging of audio pipeline and sidecar communication
 
-### 12. Windows Push-to-Talk
+### 11. Windows Push-to-Talk
 
-Native Windows support for true push-to-talk functionality using low-level keyboard hooks:
+- `resources/windows-key-listener.c`: Native C program using `SetWindowsHookEx`
+- Supports compound hotkeys (e.g., `Ctrl+Shift+F11`)
+- Falls back to tap mode if binary unavailable
 
-**Architecture**:
-- `resources/windows-key-listener.c`: Native C program using Windows `SetWindowsHookEx` for keyboard hooks
-- `src/helpers/windowsKeyManager.js`: Node.js wrapper that spawns and manages the native binary
-- Binary outputs `KEY_DOWN` and `KEY_UP` to stdout when target key is pressed/released
+### 12. GNOME Wayland Global Hotkeys
 
-**Compound Hotkey Support**:
-- Parses hotkey strings like `CommandOrControl+Shift+F11`
-- Maps modifiers: `CommandOrControl`/`Ctrl` → VK_CONTROL, `Alt`/`Option` → VK_MENU, `Shift` → VK_SHIFT
-- Verifies all required modifiers are held before emitting key events
-
-**Binary Distribution**:
-- Prebuilt binary downloaded from GitHub releases (`windows-key-listener-v*` tags)
-- Download script: `scripts/download-windows-key-listener.js`
-- CI workflow: `.github/workflows/build-windows-key-listener.yml`
-- Fallback to tap mode if binary unavailable
-
-**IPC Events**:
-- `windows-key-listener:key-down`: Fired when hotkey pressed (start recording)
-- `windows-key-listener:key-up`: Fired when hotkey released (stop recording)
-
-### 13. Custom Dictionary
-
-Improve transcription accuracy for specific words, names, or technical terms:
-
-**How it works**:
-- User adds words/phrases through Settings → Custom Dictionary
-- Words stored as JSON array in localStorage (`customDictionary` key)
-- On transcription, words are joined and passed as `prompt` parameter to Whisper
-- Works with both local whisper.cpp and cloud OpenAI Whisper API
-
-**Implementation**:
-- `src/hooks/useSettings.ts`: Manages `customDictionary` state
-- `src/components/SettingsPage.tsx`: UI for adding/removing dictionary words
-- `src/helpers/audioManager.js`: Reads dictionary and adds to transcription options
-- `src/helpers/whisperServer.js`: Includes dictionary as `prompt` in API request
-
-**Whisper Prompt Parameter**:
-- Whisper uses the prompt as context/hints for transcription
-- Words in the prompt are more likely to be recognized correctly
-- Useful for: uncommon names, technical jargon, brand names, domain-specific terms
-
-### 14. GNOME Wayland Global Hotkeys
-
-On GNOME Wayland, Electron's `globalShortcut` API doesn't work due to Wayland's security model. BilingoType uses native GNOME shortcuts:
-
-**Architecture**:
-1. `main.js` enables `GlobalShortcutsPortal` feature flag for Wayland
-2. `hotkeyManager.js` detects GNOME + Wayland and initializes `GnomeShortcutManager`
-3. `gnomeShortcut.js` creates D-Bus service at `com.bilingotype.App`
-4. Shortcuts registered via `gsettings` as custom GNOME keybindings
-5. GNOME triggers `dbus-send` command which calls the D-Bus `Toggle()` method
-
-**Key Constants**:
+- Uses native GNOME shortcuts via D-Bus and gsettings
 - D-Bus service: `com.bilingotype.App`
-- D-Bus path: `/com/bilingotype/App`
-- gsettings path: `/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/bilingotype/`
-
-**IPC Integration**:
-- `get-hotkey-mode-info`: Returns `{ isUsingGnome: boolean }` to renderer
-- UI hides activation mode selector when `isUsingGnome` is true
-- Forces tap-to-talk mode (push-to-talk not supported)
-
-**Hotkey Format Conversion**:
-- Electron format: `Alt+R`, `CommandOrControl+Shift+Space`
-- GNOME format: `<Alt>r`, `<Control><Shift>space`
-- Backtick (`) → `grave` in GNOME keysym format
+- Push-to-talk unavailable (GNOME shortcuts only fire single toggle event)
+- Falls back to X11/globalShortcut if GNOME integration fails
 
 ## Codegraph (Dependency Intelligence)
 
 Codegraph is installed for function-level dependency analysis. Use CLI commands (not MCP) to query the graph before modifying code.
 
-**Rebuild after structural changes:**
 ```bash
-codegraph build
-```
-
-**Before modifying a function** — check what depends on it:
-```bash
-codegraph fn-impact <name> -T    # blast radius
-codegraph context <name> -T      # full context (source, deps, callers)
-```
-
-**Before committing** — verify impact of staged changes:
-```bash
-codegraph diff-impact --staged -T
-```
-
-**Finding symbols and understanding structure:**
-```bash
-codegraph where <name>           # locate any symbol
-codegraph hotspots               # find complex/coupled code
-codegraph complexity --health    # code health overview
+codegraph build                      # rebuild after structural changes
+codegraph fn-impact <name> -T        # blast radius
+codegraph context <name> -T          # full context
+codegraph diff-impact --staged -T    # verify impact of staged changes
+codegraph where <name>               # locate any symbol
+codegraph hotspots                   # find complex/coupled code
 ```
 
 ## Development Guidelines
@@ -431,45 +278,35 @@ All user-facing strings **must** use the i18n system. Never hardcode UI text in 
 
 **Setup**: react-i18next (v15) with i18next (v25). Translation files in `src/locales/{lang}/translation.json`.
 
-**Supported languages**: en, es, fr, de, pt, it, ru, zh-CN, zh-TW
-
-**How to use**:
-```tsx
-import { useTranslation } from "react-i18next";
-
-const { t } = useTranslation();
-// Simple: t("notes.list.title")
-// With interpolation: t("notes.upload.using", { model: "Whisper" })
-```
+**Supported languages**: en, es, fr, de, pt, it, ru, zh-CN, zh-TW, ja
 
 **Rules**:
 1. Every new UI string must have a translation key in `en/translation.json` and all other language files
 2. Use `useTranslation()` hook in components and hooks
 3. Keep `{{variable}}` interpolation syntax for dynamic values
-4. Do NOT translate: brand names (BilingoType, Pro), technical terms (Markdown, Signal ID), format names (MP3, WAV), AI system prompts
-5. Group keys by feature area (e.g., `notes.editor.*`, `referral.toasts.*`)
+4. Do NOT translate: brand names (BilingoType), technical terms (CTranslate2, CUDA), format names
+5. Group keys by feature area (e.g., `settingsPage.transcription.backend.*`)
 
 ### Adding New Features
 
-1. **New IPC Channel**: Add to both ipcHandlers.js and preload.js
-2. **New Setting**: Update useSettings.ts and SettingsPage.tsx
-3. **New UI Component**: Follow shadcn/ui patterns in src/components/ui
-4. **New Manager**: Create in src/helpers/, initialize in main.js
-5. **New UI Strings**: Add translation keys to all 9 language files (see i18n section above)
+1. **New IPC Channel**: Add to `ipcHandlers.js`, `preload.js`, and `src/types/electron.ts`
+2. **New Setting**: Update `settingsStore.ts`, `useSettings.ts`, and `SettingsPage.tsx`
+3. **New UI Component**: Follow shadcn/ui patterns in `src/components/ui`
+4. **New Manager**: Create in `src/helpers/`, initialize in `main.js`
+5. **New UI Strings**: Add translation keys to all 10 language files
 
 ### Testing Checklist
 
-- [ ] Test both local and cloud processing modes
+- [ ] Local faster-whisper transcription works (record → transcribe → paste)
+- [ ] HuggingFace backend works (audio sent, transcription returned)
+- [ ] Custom CTranslate2 model loads from local path
+- [ ] Switching between Local/HuggingFace backends works correctly
 - [ ] Verify hotkey works globally
 - [ ] Check clipboard pasting on all platforms
 - [ ] Test with different audio input devices
-- [ ] Verify whisper.cpp binary detection
-- [ ] Test all Whisper models
-- [ ] Check agent naming functionality
 - [ ] Test custom dictionary with uncommon words
 - [ ] Verify Windows Push-to-Talk with compound hotkeys
 - [ ] Test GNOME Wayland hotkeys (if on GNOME + Wayland)
-- [ ] Verify activation mode selector is hidden on GNOME Wayland
 
 ### Common Issues and Solutions
 
@@ -479,108 +316,51 @@ const { t } = useTranslation();
    - Check audio levels in debug logs
 
 2. **Transcription Fails**:
-   - Ensure whisper.cpp binary is available
-   - Check model is downloaded
-   - Check temporary file creation
-   - Verify FFmpeg is executable
+   - Ensure `uv` is installed (required for Python sidecar)
+   - Check sidecar startup logs (`faster-whisper stderr` in debug)
+   - Verify model download completed
+   - Check CUDA availability if GPU mode selected
 
 3. **Clipboard Not Working**:
-   - macOS: Check accessibility permissions (required for AppleScript paste)
-   - Linux: Native `linux-fast-paste` binary (XTest) is tried first, works for X11 and XWayland apps
-     - X11: xdotool fallback if native binary unavailable
-     - GNOME/KDE Wayland: xdotool (XWayland apps) → ydotool (requires ydotoold daemon)
-     - wlroots Wayland (Sway, Hyprland): wtype → xdotool → ydotool
+   - macOS: Check accessibility permissions
+   - Linux: Install xdotool (X11) or wtype (Wayland)
    - Windows: PowerShell SendKeys (built-in) or nircmd.exe (bundled)
 
-4. **Build Issues**:
-   - Use `npm run pack` for unsigned builds (CSC_IDENTITY_AUTO_DISCOVERY=false)
-   - Signing requires Apple Developer account
-   - ASAR unpacking needed for FFmpeg
-   - Run `npm run download:whisper-cpp` before packaging (current platform)
-   - Use `npm run download:whisper-cpp:all` for multi-platform packaging
-   - afterSign.js automatically skips signing when CSC_IDENTITY_AUTO_DISCOVERY=false
-
-5. **Windows Push-to-Talk Binary**:
-   - Prebuilt binary downloaded automatically on Windows during build
-   - If download fails, push-to-talk falls back to tap mode
-   - To compile locally: install Visual Studio Build Tools or MinGW-w64
-   - CI workflow (`.github/workflows/build-windows-key-listener.yml`) auto-builds on push to main
+4. **HuggingFace Inference Fails**:
+   - Verify API token starts with `hf_`
+   - Check endpoint URL is accessible
+   - Review sidecar error messages in debug logs
 
 ### Platform-Specific Notes
 
 **macOS**:
 - Requires accessibility permissions for clipboard (auto-paste)
 - Requires microphone permission (prompted by system)
-- Uses AppleScript for reliable pasting
-- Notarization needed for distribution
-- Shows in dock with indicator dot when running (LSUIElement: false)
-- whisper.cpp bundled for both arm64 and x64
 - System settings accessible via `x-apple.systempreferences:` URL scheme
 
 **Windows**:
-- No special accessibility permissions needed
-- Microphone privacy settings at `ms-settings:privacy-microphone`
-- Sound settings at `ms-settings:sound`
 - NSIS installer for distribution
-- whisper.cpp bundled for x64
-- **Push-to-Talk**: Native key listener binary (`windows-key-listener.exe`) enables true push-to-talk
-  - Uses Windows Low-Level Keyboard Hook (`WH_KEYBOARD_LL`)
-  - Supports compound hotkeys (e.g., `Ctrl+Shift+F11`)
-  - Prebuilt binary auto-downloaded from GitHub releases
-  - Falls back to tap mode if unavailable
+- Push-to-Talk via native `windows-key-listener.exe`
+- GPU workaround: `app.commandLine.appendSwitch("disable-gpu-compositing")`
 
 **Linux**:
-- Multiple package manager support
-- Standard XDG directories
-- AppImage for distribution
-- whisper.cpp bundled for x64
-- No standardized URL scheme for system settings (user must open manually)
-- Privacy settings button hidden in UI (not applicable on Linux)
+- AppImage/deb/rpm for distribution
+- GNOME Wayland global hotkeys via D-Bus
 - Recommend `pavucontrol` for audio device management
-- **Clipboard paste tools** (at least one required for auto-paste):
-  - **X11**: `xdotool` (recommended)
-  - **Wayland** (non-GNOME): `wtype` (requires virtual keyboard protocol) or `xdotool` (works via XWayland, recommended for Electron apps)
-  - **GNOME Wayland**: `xdotool` for XWayland apps only (native Wayland apps require manual paste)
-  - Terminal detection: Auto-detects terminal emulators and uses Ctrl+Shift+V
-  - Fallback: Text copied to clipboard with manual paste instructions
-- **GNOME Wayland global hotkeys**:
-  - Uses native GNOME shortcuts via D-Bus and gsettings (no special permissions needed)
-  - Hotkeys visible in GNOME Settings → Keyboard → Shortcuts → Custom
-  - Default hotkey: `Alt+R` (backtick not supported)
-  - Push-to-talk unavailable (GNOME shortcuts only fire single toggle event)
-  - Falls back to X11/globalShortcut if GNOME integration fails
-  - `dbus-next` npm package used for D-Bus communication
 
 ## Code Style and Conventions
 
 - Use TypeScript for new React components
 - Follow existing patterns in helpers/
-- Descriptive error messages for users
+- Immutable data patterns (create new objects, never mutate)
 - Comprehensive debug logging
 - Clean up resources (files, listeners)
-- Handle edge cases gracefully
-
-## Performance Considerations
-
-- Whisper model size vs speed tradeoff
-- Audio blob size limits for IPC (10MB)
-- Temporary file cleanup
-- Memory usage with large models
-- Process timeout protection (5 minutes)
+- Files under 800 lines, functions under 50 lines
 
 ## Security Considerations
 
-- API keys stored in system keychain when possible
 - Context isolation enabled
 - No remote code execution
 - Sanitized file paths
 - Limited IPC surface area
-
-## Future Enhancements to Consider
-
-- Streaming transcription support
-- Custom wake word detection
-- ~~Multi-language UI~~ (implemented — 9 languages via react-i18next)
-- Cloud model selection
-- Batch transcription
-- Export formats beyond clipboard
+- HF API tokens stored in `.env` file (not in source)

@@ -186,48 +186,64 @@ Settings to REMOVE:
 
 ## 5. Implementation Phases
 
-### Phase 0: Fork Setup (Day 1)
-- [ ] Fork OpenWhispr to BilingoType repo
-- [ ] Strip cloud features (auth, cloud providers, billing)
-- [ ] Strip unused platforms (macOS, Linux binaries for now)
-- [ ] Rename: OpenWhispr → BilingoType throughout
-- [ ] Verify Electron app still launches with stripped code
-- [ ] Clean up dependencies (remove unused npm packages)
+### Phase 0: Fork Setup — COMPLETED
+- [x] Fork OpenWhispr to BilingoType repo
+- [x] Strip cloud features (auth, cloud providers, billing)
+- [x] Rename: OpenWhispr → BilingoType throughout
+- [x] Verify Electron app still launches with stripped code
 
-### Phase 1: faster-whisper Integration (Days 2-5)
-- [ ] Create Python sidecar (`stt/`) with faster-whisper
-- [ ] Implement WebSocket server for streaming results
-- [ ] Create `fasterWhisperManager.ts` (spawn/manage Python process)
-- [ ] Integrate Silero VAD
-- [ ] Replace `audioManager.js` recording logic to stream to Python sidecar
-- [ ] Test: record → transcribe → see text in console (no injection yet)
-- [ ] Model download system (HuggingFace → local cache)
+### Phase 1: faster-whisper Integration — COMPLETED (upstream)
+- [x] Create Python sidecar (`stt/`) with faster-whisper
+- [x] Implement WebSocket server for streaming results
+- [x] Create `fasterWhisperManager.js` (spawn/manage Python process via `uv`)
+- [x] Integrate Silero VAD
+- [x] Replace `audioManager.js` recording logic to stream to Python sidecar
+- [x] Model download system (HuggingFace → local cache)
 
-### Phase 2: Core Pipeline (Days 6-8)
-- [ ] Connect streaming results to text injection (`clipboard.js`)
-- [ ] Implement punctuation command detection
-- [ ] Wire up hotkey → record → transcribe → inject flow end-to-end
-- [ ] Partial result display in floating overlay
-- [ ] Test: speak "bonjour point comment vas-tu" → injects "Bonjour. Comment vas-tu"
+### Phase 2: Core Pipeline — COMPLETED (upstream)
+- [x] Connect streaming results to text injection (`clipboard.js`)
+- [x] Implement punctuation command detection (`stt/src/bilingotype_stt/punctuation.py`)
+- [x] Wire up hotkey → record → transcribe → inject flow end-to-end
+- [x] Partial result display in floating overlay
 
-### Phase 3: Hybrid Hardware (Days 9-10)
-- [ ] Enhanced GPU detection with VRAM-based model selection
-- [ ] CUDA vs CPU auto-selection in Python sidecar
-- [ ] Settings UI for compute device and model override
-- [ ] Benchmark: measure actual latency on user's hardware
+### Phase 3: Strip Cruft — COMPLETED (commit `2394f6b`)
+Stripped all code not aligned with the fork vision:
+- [x] Removed whisper.cpp (whisper.js, whisperServer.js, download-whisper-cpp.js)
+- [x] Removed Parakeet/sherpa-onnx (download-sherpa-onnx.js, parakeet models/UI)
+- [x] Removed cloud providers (OpenAI, Anthropic, Gemini, Groq, Mistral API keys and handlers)
+- [x] Removed llama-server (download-llama-server.js, local reasoning)
+- [x] Removed cloud provider icons, constants, and related UI
+- [x] Cleaned up settings store, IPC handlers, preload, types
+- [x] Verified typecheck and lint pass clean
 
-### Phase 4: Polish & Package (Days 11-14)
-- [ ] Tray icon with status indicator
-- [ ] Settings panel cleanup (remove cloud, add BilingoType-specific)
-- [ ] Audio cue customization
-- [ ] Windows installer (NSIS) packaging
-- [ ] First-run experience: model download + hardware detection
-- [ ] Error handling and crash recovery
+### Phase 4: HuggingFace Inference Support — COMPLETED (commit `a8c0936`)
+Added HuggingFace as an alternative transcription backend:
+- [x] Created `stt/src/bilingotype_stt/hf_client.py` (httpx-based HF API client)
+- [x] Added HF backend routing in `server.py` (accumulate audio → batch send on stop)
+- [x] Added `transcriptionBackend`, `hfMode`, `hfEndpointUrl`, `hfModelId`, `hfApiToken` to settings store
+- [x] Added HF settings IPC handlers, preload bindings, and type definitions
+- [x] Added HF backend toggle and configuration UI in SettingsPage
+- [x] Added translation keys for all 10 locales
+- [x] Added `httpx>=0.27` to `stt/pyproject.toml`
+
+### Phase 5: Custom Local Model Path — COMPLETED (commit `77be630`)
+Users can load fine-tuned CTranslate2 Whisper models:
+- [x] Added `customModelPath` to settings store and `.env` persistence
+- [x] Added browse/save/get IPC handlers for custom model path
+- [x] Updated `WhisperEngine` to accept custom model path (loads from directory)
+- [x] Updated `server.py` to forward `customModelPath` to engine
+- [x] Added custom model UI with Browse/Clear in SettingsPage (hides standard picker when active)
+- [x] Added translation keys for all 10 locales
+
+### Phase 6: Documentation Cleanup — COMPLETED
+- [x] Rewrote CLAUDE.md to reflect current architecture
+- [x] Updated FORK_PLAN.md with completion statuses
 
 ### Future: Code-Switching Improvement
 - Fine-tune Whisper on FR/EN datasets (SwitchLingua, CAFE)
 - Language-aware decoding with per-chunk tokens
 - Custom vocabulary injection via initial_prompt
+- Train with CTranslate2 export → load via custom model path
 
 ---
 

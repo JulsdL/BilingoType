@@ -424,6 +424,18 @@ class WindowManager {
   }
 
   openExternalUrl(url, showError = true) {
+    // Validate URL protocol before opening externally
+    try {
+      const parsed = new URL(url);
+      const ALLOWED_PROTOCOLS = new Set(["https:", "http:", "mailto:"]);
+      if (!ALLOWED_PROTOCOLS.has(parsed.protocol)) {
+        debugLogger.warn("Blocked openExternalUrl with disallowed protocol", { url });
+        return;
+      }
+    } catch {
+      debugLogger.warn("Blocked openExternalUrl with invalid URL", { url });
+      return;
+    }
     shell.openExternal(url).catch((error) => {
       if (showError) {
         dialog.showErrorBox(
@@ -613,6 +625,21 @@ class WindowManager {
     if (!this.mainWindow) {
       return;
     }
+
+    // Prevent main window from navigating to external URLs
+    this.mainWindow.webContents.on("will-navigate", (event, url) => {
+      if (url.startsWith("devtools://")) return;
+      // Allow in-app navigation only (dev server or file:// in production)
+      if (process.env.NODE_ENV === "development" && url.includes("localhost")) return;
+      if (url.startsWith("file://")) return;
+      event.preventDefault();
+      this.openExternalUrl(url);
+    });
+
+    this.mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+      this.openExternalUrl(url);
+      return { action: "deny" };
+    });
 
     // Safety timeout: force show the window if ready-to-show doesn't fire within 10 seconds
     const showTimeout = setTimeout(() => {

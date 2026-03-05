@@ -464,6 +464,17 @@ class IPCHandlers {
     ipcMain.handle("transcribe-audio-file", async (event, filePath, options = {}) => {
       const fs = require("fs");
       try {
+        // Validate file path: must be a string with an audio extension
+        if (typeof filePath !== "string" || !filePath) {
+          return { success: false, error: "Invalid file path" };
+        }
+        const ALLOWED_AUDIO_EXTENSIONS = new Set([
+          ".mp3", ".wav", ".m4a", ".webm", ".ogg", ".flac", ".aac",
+        ]);
+        const ext = path.extname(filePath).toLowerCase();
+        if (!ALLOWED_AUDIO_EXTENSIONS.has(ext)) {
+          return { success: false, error: "Invalid audio file type" };
+        }
         const audioBuffer = fs.readFileSync(filePath);
         const result = await this.whisperManager.transcribeLocalWhisper(audioBuffer, options);
         return result;
@@ -830,6 +841,11 @@ class IPCHandlers {
 
     ipcMain.handle("open-external", async (event, url) => {
       try {
+        const parsed = new URL(url);
+        const ALLOWED_PROTOCOLS = new Set(["https:", "http:", "mailto:"]);
+        if (!ALLOWED_PROTOCOLS.has(parsed.protocol)) {
+          return { success: false, error: "Disallowed URL protocol" };
+        }
         await shell.openExternal(url);
         return { success: true };
       } catch (error) {

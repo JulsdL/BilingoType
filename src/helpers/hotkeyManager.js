@@ -427,15 +427,13 @@ class HotkeyManager {
   }
 
   async saveHotkeyToRenderer(hotkey) {
-    const escapedHotkey = hotkey.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-
     await this._persistHotkeyToEnvFile(hotkey);
 
     // Also save to localStorage for backwards compatibility
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       try {
         await this.mainWindow.webContents.executeJavaScript(
-          `localStorage.setItem("dictationKey", "${escapedHotkey}"); true;`
+          `localStorage.setItem("dictationKey", ${JSON.stringify(hotkey)}); true;`
         );
         debugLogger.log(`[HotkeyManager] Saved hotkey "${hotkey}" to localStorage`);
         return true;

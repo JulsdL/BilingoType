@@ -167,6 +167,31 @@ async function startApp() {
     }
   });
 
+  // Set up targeted CORS bypass for known API domains so that webSecurity
+  // can remain enabled on the control panel window.  Only responses from
+  // these trusted API endpoints get the permissive CORS header injected.
+  const CORS_ALLOWED_ORIGINS = new Set([
+    "api.openai.com",
+    "api.anthropic.com",
+    "generativelanguage.googleapis.com",
+    "api.groq.com",
+    "api.mistral.ai",
+  ]);
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    try {
+      const url = new URL(details.url);
+      if (CORS_ALLOWED_ORIGINS.has(url.hostname)) {
+        const headers = { ...details.responseHeaders };
+        headers["access-control-allow-origin"] = ["*"];
+        headers["access-control-allow-headers"] = ["*"];
+        headers["access-control-allow-methods"] = ["GET, POST, PUT, DELETE, OPTIONS"];
+        callback({ responseHeaders: headers });
+        return;
+      }
+    } catch {}
+    callback({ responseHeaders: details.responseHeaders });
+  });
+
   // In development, wait for Vite dev server to be ready
   if (process.env.NODE_ENV === "development") {
     await new Promise((resolve) => setTimeout(resolve, 500));

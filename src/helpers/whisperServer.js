@@ -12,6 +12,23 @@ const { convertToWav } = require("./ffmpegUtils");
 
 const PORT_RANGE_START = 8178;
 const PORT_RANGE_END = 8199;
+
+// Valid language codes for whisper — derived from languageRegistry.json
+const VALID_LANGUAGES = new Set((() => {
+  try {
+    const registry = require("../config/languageRegistry.json");
+    const codes = new Set();
+    for (const lang of registry.languages) {
+      codes.add(lang.code);
+      const base = lang.code.split("-")[0];
+      if (base !== lang.code) codes.add(base);
+    }
+    codes.add("auto");
+    return codes;
+  } catch {
+    return ["auto", "en", "es", "fr", "de", "it", "pt", "ru", "zh", "ja", "ko"];
+  }
+})());
 const STARTUP_TIMEOUT_MS = 30000;
 const HEALTH_CHECK_INTERVAL_MS = 5000;
 const HEALTH_CHECK_TIMEOUT_MS = 2000;
@@ -248,7 +265,8 @@ class WhisperServerManager extends EventEmitter {
     if (options.threads) args.push("--threads", String(options.threads));
     // whisper.cpp defaults to English when --language is omitted;
     // explicitly pass "auto" to enable language auto-detection
-    args.push("--language", options.language || "auto");
+    const language = options.language || "auto";
+    args.push("--language", VALID_LANGUAGES.has(language) ? language : "auto");
 
     debugLogger.debug("Starting whisper-server", {
       port: this.port,
@@ -444,12 +462,14 @@ class WhisperServerManager extends EventEmitter {
 
     // Add initial prompt for custom dictionary words
     if (initialPrompt) {
+      // Sanitize: strip any MIME boundary sequences to prevent multipart injection
+      const sanitizedPrompt = String(initialPrompt).replace(new RegExp(`--${boundary}`, "g"), "");
       parts.push(
         `--${boundary}\r\n` +
           `Content-Disposition: form-data; name="prompt"\r\n\r\n` +
-          `${initialPrompt}\r\n`
+          `${sanitizedPrompt}\r\n`
       );
-      debugLogger.info("Using custom dictionary prompt", { prompt: initialPrompt });
+      debugLogger.info("Using custom dictionary prompt", { prompt: sanitizedPrompt });
     }
 
     parts.push(

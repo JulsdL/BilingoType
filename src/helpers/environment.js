@@ -1,7 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const fsPromises = require("fs/promises");
-const { app } = require("electron");
+const { app, safeStorage } = require("electron");
 const { normalizeUiLanguage } = require("./i18nMain");
 
 const PERSISTED_KEYS = [
@@ -28,6 +28,39 @@ const PERSISTED_KEYS = [
   "STT_DEVICE",
   "STT_BENCHMARK_MS",
 ];
+
+// Keys that contain secrets and should be encrypted at rest
+const SENSITIVE_KEYS = new Set([
+  "OPENAI_API_KEY",
+  "ANTHROPIC_API_KEY",
+  "GEMINI_API_KEY",
+  "GROQ_API_KEY",
+  "MISTRAL_API_KEY",
+  "CUSTOM_TRANSCRIPTION_API_KEY",
+  "CUSTOM_REASONING_API_KEY",
+]);
+
+const ENCRYPTED_PREFIX = "enc:";
+
+function _encryptValue(value) {
+  if (!value || !safeStorage.isEncryptionAvailable()) return value;
+  try {
+    return ENCRYPTED_PREFIX + safeStorage.encryptString(value).toString("base64");
+  } catch {
+    return value;
+  }
+}
+
+function _decryptValue(value) {
+  if (!value || !value.startsWith(ENCRYPTED_PREFIX)) return value;
+  if (!safeStorage.isEncryptionAvailable()) return value;
+  try {
+    const encrypted = Buffer.from(value.slice(ENCRYPTED_PREFIX.length), "base64");
+    return safeStorage.decryptString(encrypted);
+  } catch {
+    return value;
+  }
+}
 
 class EnvironmentManager {
   constructor() {
@@ -56,6 +89,14 @@ class EnvironmentManager {
           require("dotenv").config({ path: envPath });
         }
       } catch {}
+    }
+
+    // Decrypt any encrypted sensitive values loaded from .env
+    for (const key of SENSITIVE_KEYS) {
+      const value = process.env[key];
+      if (value && value.startsWith(ENCRYPTED_PREFIX)) {
+        process.env[key] = _decryptValue(value);
+      }
     }
   }
 
@@ -170,9 +211,10 @@ class EnvironmentManager {
   async createProductionEnvFile(apiKey) {
     const envPath = path.join(app.getPath("userData"), ".env");
 
+    const encryptedKey = _encryptValue(apiKey);
     const envContent = `# BilingoType Environment Variables
 # This file was created automatically for production use
-OPENAI_API_KEY=${apiKey}
+OPENAI_API_KEY=${encryptedKey}
 `;
 
     await fsPromises.writeFile(envPath, envContent, "utf8");
@@ -188,7 +230,13 @@ OPENAI_API_KEY=${apiKey}
 
     for (const key of PERSISTED_KEYS) {
       if (process.env[key]) {
-        envContent += `${key}=${process.env[key]}\n`;
+        // Encrypt sensitive keys (API keys) at rest
+        const value = SENSITIVE_KEYS.has(key)
+          ? _encryptValue(process.env[key])
+          : process.env[key];
+        // Escape newlines to prevent .env format corruption
+        const sanitized = String(value).replace(/\n/g, "\\n");
+        envContent += `${key}=${sanitized}\n`;
       }
     }
 

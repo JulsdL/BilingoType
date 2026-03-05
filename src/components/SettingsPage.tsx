@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
+import DOMPurify from "dompurify";
 import { useTranslation } from "react-i18next";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -1385,7 +1386,7 @@ export default function SettingsPage({ activeSection = "general" }: SettingsPage
                       </p>
                       <div
                         className="text-xs text-muted-foreground [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:space-y-1 [&_li]:pl-1 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_a]:text-link [&_a]:underline"
-                        dangerouslySetInnerHTML={{ __html: updateInfo.releaseNotes }}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(updateInfo.releaseNotes || "") }}
                       />
                     </div>
                   )}

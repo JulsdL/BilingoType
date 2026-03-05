@@ -274,12 +274,15 @@ class WhisperCudaManager {
   _extractZip(zipPath, destDir) {
     if (process.platform === "win32") {
       return new Promise((resolve, reject) => {
+        // Use -EncodedCommand to avoid shell metacharacter injection via paths
+        const psCommand = `Expand-Archive -Force -Path ${JSON.stringify(zipPath)} -DestinationPath ${JSON.stringify(destDir)}`;
+        const encodedCommand = Buffer.from(psCommand, "utf16le").toString("base64");
         execFile(
           "powershell",
           [
             "-NoProfile",
-            "-Command",
-            `Expand-Archive -Force -Path '${zipPath}' -DestinationPath '${destDir}'`,
+            "-EncodedCommand",
+            encodedCommand,
           ],
           (error) => {
             if (error) reject(new Error(`Zip extraction failed: ${error.message}`));

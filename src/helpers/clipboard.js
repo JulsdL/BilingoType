@@ -316,7 +316,7 @@ class ClipboardManager {
       return cached.exists;
     }
     try {
-      const res = spawnSync("sh", ["-c", `command -v ${cmd}`], {
+      const res = spawnSync("which", [cmd], {
         stdio: "ignore",
       });
       const exists = res.status === 0;
@@ -1335,10 +1335,13 @@ Would you like to open System Settings now?`;
 Would you like to open System Settings now?`;
     }
 
-    const permissionDialog = spawn("osascript", [
-      "-e",
-      `display dialog "${dialogMessage}" buttons {"Cancel", "Open System Settings"} default button "Open System Settings"`,
-    ]);
+    // Pass AppleScript via stdin to avoid shell/quote interpolation issues
+    const escapedMessage = dialogMessage.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    const permissionDialog = spawn("osascript", ["-"], { stdio: ["pipe", "pipe", "pipe"] });
+    permissionDialog.stdin.write(
+      `display dialog "${escapedMessage}" buttons {"Cancel", "Open System Settings"} default button "Open System Settings"\n`
+    );
+    permissionDialog.stdin.end();
 
     permissionDialog.on("close", (dialogCode) => {
       if (dialogCode === 0) {

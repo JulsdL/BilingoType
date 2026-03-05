@@ -65,6 +65,10 @@ function downloadAttempt(url, tempPath, options) {
       headers["Range"] = `bytes=${startOffset}-`;
     }
 
+    if (!url.startsWith("https://") && !url.startsWith("http://localhost")) {
+      reject(Object.assign(new Error("Downloads must use HTTPS"), { isHttpError: true }));
+      return;
+    }
     const client = url.startsWith("https") ? https : http;
     let request = null;
     let activeFile = null;
